@@ -79,8 +79,34 @@ impl<T> Scanner<T> {
     }
 
     fn current_text(&self) -> String {
-        self.source[self.start..self.current].into_iter().collect()
+        self.text(self.start, self.current)
     }
+
+    fn text(&self, start: usize, end: usize) -> String {
+        self.source[start..end].into_iter().collect()
+    }
+
+    fn string(&mut self) {
+        while self.peek() != '"' && !self.is_at_end()
+        {
+            if self.peek() == '\n' {
+                self.line = self.line + 1
+            }
+
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            panic!( " {} Unterminated string.", self.line);
+        }
+
+        // The closing ".
+        self.advance();
+
+        // Trim the surrounding quotes.
+        self.add_token_literal(TokenType::String, self.text(self.start+1, self.current-1));
+    }
+
 
     fn scan_token(&mut self) {
         let c: char = self.advance();
@@ -99,10 +125,36 @@ impl<T> Scanner<T> {
 
             /// operators
             '!' => {
-
+                if self.match_char('=') {
+                    self.add_token(TokenType::BangEqual)
+                } else {
+                    self.add_token(TokenType::Bang)
+                }
+            }
+            '=' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::EqualEqual)
+                } else {
+                    self.add_token(TokenType::Equal)
+                }
+            }
+            '<' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::LessEqual)
+                } else {
+                    self.add_token(TokenType::Less)
+                }
             }
 
+            '>' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::GreaterEqual)
+                } else {
+                    self.add_token(TokenType::Greater)
+                }
+            }
 
+            /// Whitespace
             ' ' => {
                 // ignore
             }
@@ -111,6 +163,18 @@ impl<T> Scanner<T> {
             }
             '\n' => {
                 self.line = self.line + 1;
+            }
+
+             '/' => {
+                 if self.match_char('/') {
+                     // A comment goes until the end of the line.
+                     while self.peek() != '\n' && !self.is_at_end() {
+                         self.advance();
+                     }
+
+                 } else {
+                     self.add_token(TokenType::Slash)
+                 }
             }
 
 
