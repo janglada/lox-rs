@@ -1,10 +1,12 @@
+#[derive(Debug)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
     RightParen,
     LeftBrace,
     RightBrace,
-    Comma, Dot, Minus, Plus, SemiColoon, Slash, Star,
+    Comma, Dot, Minus, Plus,
+    SemiColon, Slash, Star,
 
     // One or two character tokens.
     Bang,
@@ -17,7 +19,9 @@ pub enum TokenType {
     LessEqual,
 
     // Literals.
-    Identifier, String, Number,
+    Identifier,
+    String(Option<String>),
+    Number(Option<f64>),
 
     // Keywords.
     And, Class, Else, False, Fun, For, If, Nil, Or,
@@ -25,25 +29,23 @@ pub enum TokenType {
 
     EOF
 }
-pub struct Token<T> {
+#[derive(Debug)]
+pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<T>,
     line: usize
 }
 
-impl<T> Token<T> {
 
+
+
+
+
+
+impl Token {
     pub fn new(token_type:TokenType, lexeme: String,   line: usize)-> Self {
         Token {
-            token_type, lexeme, literal: None, line
+            token_type, lexeme,  line
         }
     }
-
-    pub fn new_literal(token_type:TokenType, lexeme: String,  literal: T, line: usize)-> Self {
-        Token {
-            token_type, lexeme, literal: Some(literal), line
-        }
-    }
-
 }

@@ -1,10 +1,10 @@
 
 
-use crate::token::{Token, TokenType};
+use crate::token::{ Token, TokenType};
 
-struct Scanner<T> {
+struct Scanner {
     source: Vec<char>,
-    tokens: Vec<Token<T>>,
+    tokens: Vec<Token>,
 
 
     start:usize,
@@ -12,7 +12,7 @@ struct Scanner<T> {
     line:usize,
 }
 
-impl<T> Scanner<T> {
+impl Scanner {
 
     fn new(source: String) -> Self{
         Scanner {
@@ -54,6 +54,13 @@ impl<T> Scanner<T> {
         *self.source.get(self.current).unwrap()
     }
 
+    fn peek_next(&mut self) -> char {
+        if self.current + 1 >= self.source.len() {
+            return '\0';
+        }
+        return *self.source.get(self.current +1 ).unwrap()
+    }
+
     /// It’s like a conditional advance(). We only consume the current character if it’s what we’re looking for.
     ///
     ///
@@ -74,9 +81,6 @@ impl<T> Scanner<T> {
         self.tokens.push(Token::new(token, self.current_text(), self.line))
     }
 
-    fn add_token_literal(&mut self, token: TokenType, literal: T) {
-        self.tokens.push(Token::new_literal(token, self.current_text(), literal, self.line))
-    }
 
     fn current_text(&self) -> String {
         self.text(self.start, self.current)
@@ -104,10 +108,69 @@ impl<T> Scanner<T> {
         self.advance();
 
         // Trim the surrounding quotes.
-        self.add_token_literal(TokenType::String, self.text(self.start+1, self.current-1));
+        let str_literal =
+        self.add_token(TokenType::String(Some(self.text(self.start+1, self.current-1))));
     }
 
+    ///
+    ///
+    ///
+    fn  number(&mut self) {
+        while self.peek().is_digit(10) {
+            self.advance();
+        }
 
+        // Look for a fractional part.
+        if self.peek() == '.' && self.peek_next().is_digit(10)
+        {
+            // Consume the "."
+            self.advance();
+
+            while self.peek().is_digit(10) {
+                self.advance();
+            }
+        }
+
+
+        self.add_token(TokenType::Number(self.text(self.start, self.current).parse::<f64>().ok()));
+
+    }
+
+    ///
+    ///
+    ///
+
+    fn identifier(&mut self) {
+        while self.peek().is_alphanumeric() {
+            self.advance();
+        }
+
+        let text = self.text(self.start, self.current);
+        let token = match text.as_str() {
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "else" => TokenType::Else,
+            "false" => TokenType::False,
+            "for" => TokenType::For,
+            "fun" => TokenType::Fun,
+            "if" => TokenType::If,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "this" => TokenType::This,
+            "true" => TokenType::True,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier
+        };
+
+        self.add_token(token);
+
+
+
+    }
     fn scan_token(&mut self) {
         let c: char = self.advance();
 
@@ -120,7 +183,7 @@ impl<T> Scanner<T> {
              '.' => self.add_token(TokenType::Dot),
              '-' => self.add_token(TokenType::Minus),
              '+' => self.add_token(TokenType::Plus),
-             ';' => self.add_token(TokenType::SemiColoon),
+             ';' => self.add_token(TokenType::SemiColon),
              '*' => self.add_token(TokenType::Star),
 
             /// operators
@@ -178,12 +241,40 @@ impl<T> Scanner<T> {
             }
 
 
+            '"' => self.string(),
 
             _ => {
-                panic!("{} {} Unexpected error", self.line, c);
+                if c.is_digit(10) {
+                    self.number();
+                } else if c.is_alphabetic() {
+                    self.identifier();
+                }else {
+                   panic!("{} Unexpected character.", self.line);
+                }
             }
         }
 
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::scanner::Scanner;
+
+    #[test]
+    fn basic_sum() {
+       let mut scanner = Scanner::new("1 + 1".to_string());
+        scanner.scan_tokens();
+        println!("{:?}", scanner.tokens);
+    }
+
+    #[test]
+    fn var_Set() {
+        let mut scanner = Scanner::new("var a = !((1+1)< 0)".to_string());
+        scanner.scan_tokens();
+        println!("{:?}", scanner.tokens);
     }
 
 }
