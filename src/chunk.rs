@@ -4,8 +4,8 @@ pub type Value = f64;
 pub type ConstantPool = Vec<f64>;
 
 pub struct Chunk {
-    op_codes: Vec<Opcode>,
-    constants: Vec<f64>
+    pub op_codes: Vec<Opcode>,
+    pub constants: Vec<f64>
 }
 
 impl Chunk {
