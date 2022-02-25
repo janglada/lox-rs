@@ -271,8 +271,22 @@ mod tests {
     }
 
     #[test]
-    fn var_Set() {
+    fn var_set() {
         let mut scanner = Scanner::new("var a = !((1+1)< 0)".to_string());
+        scanner.scan_tokens();
+        println!("{:?}", scanner.tokens);
+    }
+
+    #[test]
+    fn multiline() {
+        let mut scanner = Scanner::new("var a = 1+1\nvar b =  false".to_string());
+        scanner.scan_tokens();
+        println!("{:?}", scanner.tokens);
+    }
+
+    #[test]
+    fn string() {
+        let mut scanner = Scanner::new("var a = \"hello world\"".to_string());
         scanner.scan_tokens();
         println!("{:?}", scanner.tokens);
     }
