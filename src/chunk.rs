@@ -54,6 +54,9 @@ impl WritableChunk for Chunk {
             Opcode::OpReturn => {
                 return self.simple_instruction("OP_RETURN", offset);
             },
+            Opcode::OPNegate => {
+                return self.simple_instruction("OP_NEGATE", offset);
+            },
             Opcode::OpConstant(size) => {
                 return self.constant_instruction("OP_CONSTANT", offset, *size);
             },
@@ -80,15 +83,21 @@ impl WritableChunk for Chunk {
 mod tests {
     use crate::chunk::{Chunk, WritableChunk};
     use crate::opcode::Opcode;
+    use crate::vm::VM;
 
     #[test]
     fn basic_sum() {
         let mut chunk : Chunk = Chunk::new();
-        chunk.write_chunk(Opcode::OpReturn);
         let idx = chunk.add_constant(3.14);
 
         chunk.write_chunk(Opcode::OpConstant(idx));
+        chunk.write_chunk(Opcode::OPNegate);
+        chunk.write_chunk(Opcode::OpReturn);
 
        chunk.disassemble_chunk();
+
+        let mut vm = VM::new();
+        vm.interpret(&chunk);
+
     }
 }
