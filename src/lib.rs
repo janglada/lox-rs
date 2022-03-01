@@ -1,5 +1,9 @@
+extern crate core;
+
 mod token;
-mod scanner;
+// mod full_scanner;
 mod chunk;
 mod opcode;
 mod vm;
+mod compiler;
+mod scanner;

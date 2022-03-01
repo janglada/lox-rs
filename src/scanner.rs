@@ -1,96 +1,202 @@
 
+use crate::token::{Token, TokenType};
 
-use crate::token::{ Token, TokenType};
-
-struct Scanner {
+pub struct Scanner<'a> {
+    input: &'a str,
     source: Vec<char>,
-    tokens: Vec<Token>,
-
-
-    start:usize,
-    current:usize,
-    line:usize,
+    // The starting index of the next character.
+    start: usize,
+    current: usize,
+    pub line: isize
 }
 
-impl Scanner {
-
-    fn new(source: String) -> Self{
-        Scanner {
+impl<'a> Scanner<'a> {
+    pub fn new(source: &'a str) -> Self{
+        Self {
+            input: source,
             source: source.chars().collect::<Vec<char>>(),
-            tokens: Vec::new(),
             start: 0,
             current: 0,
-            line: 0,
+            line: 0
         }
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
-    }
+    pub fn start(&mut self)
+    {
+        let mut line: isize =  -1;
+        loop {
+            let token = self.scan_token();
+            if token.line != line {
+                print!("\n{:04}\t", token.line);
+                line = token.line;
+            } else {
+                print!("\t| ");
+            }
+            print!("{:?} ", token.token_type);
 
-    fn scan_tokens(&mut self)  {
-        while !self.is_at_end() {
-            self.start = self.current;
-            self.scan_token();
+
+            if token.token_type == TokenType::EOF {
+                break;
+            }
         }
-
-        self.tokens.push(Token::new(TokenType::EOF, "".to_string(), self.line));
-
-    }
-    /// The advance() method consumes the next character in the source file and returns it.
-    ///
-    fn advance(&mut self,) -> char {
-        let c = self.source[self.current];
-        self.current =  self.current + 1;
-        c
     }
 
+    fn is_at_end(&mut self) -> bool {
+        self.peek() == '\0'
+    }
     ///
-    ///
+///
     fn peek(&mut self) -> char {
-        if self.is_at_end() {
-            return '\0'
+        unsafe {
+            *self.source.get_unchecked(self.current)
         }
-        *self.source.get(self.current).unwrap()
     }
 
+    ///
+    ///
     fn peek_next(&mut self) -> char {
-        if self.current + 1 >= self.source.len() {
-            return '\0';
+        unsafe {
+            *self.source.get_unchecked(self.current + 1)
         }
-        return *self.source.get(self.current +1 ).unwrap()
     }
 
-    /// It’s like a conditional advance(). We only consume the current character if it’s what we’re looking for.
-    ///
-    ///
-    fn match_char( &mut self, expected: char) -> bool{
-        if self.is_at_end()  {
-            return false
-        }
-        if *self.source.get(self.current).unwrap() != expected {
-            return false
-        }
-
+    fn advance(&mut self) -> char {
+        let idx = self.current;
         self.current = self.current + 1;
+        unsafe {
+            *self.source.get_unchecked(idx)
+        }
 
-        true
     }
 
-    fn add_token(&mut self, token: TokenType) {
-        self.tokens.push(Token::new(token, self.current_text(), self.line))
+    ///
+    ///
+    ///
+    fn scan_token(&mut self) ->Token {
+        self.skip_whitespace();
+
+        self.start = self.current;
+
+        if self.is_at_end() {
+            return self.make_token(TokenType::EOF);
+        }
+        let c = self.advance();
+
+        match c {
+            '\0' => self.make_token(TokenType::EOF),
+            '(' => self.make_token(TokenType::LeftParen),
+            ')' => self.make_token(TokenType::RightParen),
+            '{' => self.make_token(TokenType::LeftBrace),
+            '}' => self.make_token(TokenType::RightBrace),
+            ',' => self.make_token(TokenType::Comma),
+            '.' => self.make_token(TokenType::Dot),
+            '-' => self.make_token(TokenType::Minus),
+            '+' => self.make_token(TokenType::Plus),
+            ';' => self.make_token(TokenType::SemiColon),
+            '*' => self.make_token(TokenType::Star),
+
+            /// operators
+            '!' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::BangEqual)
+                } else {
+                    return self.make_token(TokenType::Bang)
+                }
+            }
+            '=' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::EqualEqual)
+                } else {
+                    return self.make_token(TokenType::Equal)
+                }
+            }
+            '<' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::LessEqual)
+                } else {
+                    return self.make_token(TokenType::Less)
+                }
+            }
+
+            '>' => {
+                if self.match_char('=') {
+                    return self.make_token(TokenType::GreaterEqual)
+                } else {
+                    return self.make_token(TokenType::Greater)
+                }
+            }
+
+            '"' => self.string(),
+
+            _ => {
+                if c.is_digit(10) {
+                    return self.number();
+                } else if Scanner::is_alpha(c)  {
+                    return self.identifier(c);
+                } else {
+                    panic!("Line: {} [{}] Unexpected character.", self.line, c);
+                }
+            }
+        }
+
+
     }
 
-
-    fn current_text(&self) -> String {
-        self.text(self.start, self.current)
+    fn is_alpha(c: char) -> bool{
+        c.is_alphabetic() || c == '_'
     }
 
-    fn text(&self, start: usize, end: usize) -> String {
-        self.source[start..end].into_iter().collect()
+    ///
+    ///
+    ///
+    fn make_token(&self, token_type: TokenType) -> Token {
+        // dbg!("MAKE TOKEN {:?} {}...{}", token_type,  self.start, self.current);
+        Token::new(
+            token_type,
+
+            self.start,
+            self.current -self.start,
+            self.line
+        )
+
     }
 
-    fn string(&mut self) {
+    ///
+    ///
+    ///
+    fn skip_whitespace(&mut self) {
+        loop {
+            let c = self.peek();
+
+            match c {
+                ' ' |  '\r' |  '\t'=> {
+                    self.advance();
+                }
+                '\n' => {
+                    self.line = self.line + 1;
+                    self.advance();
+                },
+                '/' => {
+                    if self.peek_next() == '/' {
+                        while self.peek() != '\n' && !self.is_at_end() {
+                            self.advance();
+                        }
+                    } else {
+                        return
+                    }
+                },
+                _ =>{
+                    return
+                }
+            }
+
+        }
+    }
+
+    ///
+    ///
+    ///
+    fn string(&mut self) -> Token {
         while self.peek() != '"' && !self.is_at_end()
         {
             if self.peek() == '\n' {
@@ -108,14 +214,15 @@ impl Scanner {
         self.advance();
 
         // Trim the surrounding quotes.
-        let str_literal =
-        self.add_token(TokenType::String(Some(self.text(self.start+1, self.current-1))));
+
+        return self.make_token(TokenType::String)
+
     }
 
     ///
     ///
     ///
-    fn  number(&mut self) {
+    fn  number(&mut self) -> Token {
         while self.peek().is_digit(10) {
             self.advance();
         }
@@ -131,164 +238,159 @@ impl Scanner {
             }
         }
 
+        self.make_token(TokenType::Number)
 
-        self.add_token(TokenType::Number(self.text(self.start, self.current).parse::<f64>().ok()));
+    }
 
+
+
+    ///
+    ///
+    ///
+    fn check_keyword(&self, start: usize, len : usize, rest: &str, token_type: TokenType) -> TokenType{
+
+        if (self.current - self.start == start +  len) && self.source[self.start + start..self.start + start+len].iter().collect::<String>().eq(rest) {
+
+            token_type
+        } else {
+            TokenType::Identifier
+        }
+
+        // println!("DEBUG REST {} ", rest);
+        // if rest.chars().all(|c| {
+        //     // let advance_char = self.advance();
+        //     // println!("DEBUG {} {}", c, advance_char);
+        //     if  c ==  self.advance() {
+        //         true
+        //     } else {
+        //         false
+        //     }
+        // } ) && !self.advance().is_alphanumeric() {
+        //     token_type
+        // } else {
+        //     while self.advance().is_alphanumeric() {
+        //         // self.advance();
+        //     }
+        //     TokenType::Identifier
+        // }
     }
 
     ///
     ///
     ///
-
-    fn identifier(&mut self) {
-        while self.peek().is_alphanumeric() {
+    fn identifier(&mut self, c: char) -> Token {
+        while Scanner::is_alpha(self.peek() )|| self.peek().is_digit(10) {
             self.advance();
+
         }
 
-        let text = self.text(self.start, self.current);
-        let token = match text.as_str() {
-            "and" => TokenType::And,
-            "class" => TokenType::Class,
-            "else" => TokenType::Else,
-            "false" => TokenType::False,
-            "for" => TokenType::For,
-            "fun" => TokenType::Fun,
-            "if" => TokenType::If,
-            "nil" => TokenType::Nil,
-            "or" => TokenType::Or,
-            "print" => TokenType::Print,
-            "return" => TokenType::Return,
-            "super" => TokenType::Super,
-            "this" => TokenType::This,
-            "true" => TokenType::True,
-            "var" => TokenType::Var,
-            "while" => TokenType::While,
+        let token_type = match c {
+            '\0' => TokenType::EOF,
+            'a' => self.check_keyword(1, 2,"nd", TokenType::And),
+            'c' => self.check_keyword(1, 4,"lass", TokenType::Class),
+            'e' => self.check_keyword(1, 3,"lse", TokenType::Else),
+            'i' => self.check_keyword(1, 1,"f", TokenType::If),
+            'n' => self.check_keyword(1, 2,"il", TokenType::Nil),
+            'o' => self.check_keyword(1, 1,"r", TokenType::Or),
+            'p' => self.check_keyword(1, 4,"rint", TokenType::Print),
+            'r' => self.check_keyword(1, 5,"eturn", TokenType::Return),
+            's' => self.check_keyword(1, 4,"super", TokenType::Super),
+            'v' => self.check_keyword(1, 2,"ar", TokenType::Var),
+            'w' => self.check_keyword(1, 4,"hile", TokenType::While),
+            'f' => {
+                //dbg!("{} {} {}", self.current, self.start, self.source[self.start]);
+               if self.current - self.start > 1 {
+                match self.source[self.start+1]{
+                    'a' => self.check_keyword(2,3,"lse", TokenType::False),
+                    'o' => self.check_keyword(2,1,"r", TokenType::For),
+                    'u' => self.check_keyword(2,1,"n", TokenType::Fun),
+                    _ => TokenType::Identifier
+                }
+               } else {
+                   TokenType::Identifier
+               }
+            },
+            't' => {
+                if self.current - self.start > 1 {
+                    match self.source[self.start+1] {
+                        'h' => self.check_keyword(2, 2, "is", TokenType::This),
+                        'r' => self.check_keyword(2, 2, "ue", TokenType::True),
+                        _ => TokenType::Identifier
+                    }
+                }else {
+                    TokenType::Identifier
+                }
+            }
             _ => TokenType::Identifier
         };
-
-        self.add_token(token);
-
-
+        return self.make_token(token_type)
 
     }
-    fn scan_token(&mut self) {
-        let c: char = self.advance();
-
-        match c {
-             '(' => self.add_token(TokenType::LeftParen),
-             ')' => self.add_token(TokenType::RightParen),
-             '{' => self.add_token(TokenType::LeftBrace),
-             '}' => self.add_token(TokenType::RightBrace),
-             ',' => self.add_token(TokenType::Comma),
-             '.' => self.add_token(TokenType::Dot),
-             '-' => self.add_token(TokenType::Minus),
-             '+' => self.add_token(TokenType::Plus),
-             ';' => self.add_token(TokenType::SemiColon),
-             '*' => self.add_token(TokenType::Star),
-
-            /// operators
-            '!' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::BangEqual)
-                } else {
-                    self.add_token(TokenType::Bang)
-                }
-            }
-            '=' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::EqualEqual)
-                } else {
-                    self.add_token(TokenType::Equal)
-                }
-            }
-            '<' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::LessEqual)
-                } else {
-                    self.add_token(TokenType::Less)
-                }
-            }
-
-            '>' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::GreaterEqual)
-                } else {
-                    self.add_token(TokenType::Greater)
-                }
-            }
-
-            /// Whitespace
-            ' ' => {
-                // ignore
-            }
-            '\t' => {
-                // ignore
-            }
-            '\n' => {
-                self.line = self.line + 1;
-            }
-
-             '/' => {
-                 if self.match_char('/') {
-                     // A comment goes until the end of the line.
-                     while self.peek() != '\n' && !self.is_at_end() {
-                         self.advance();
-                     }
-
-                 } else {
-                     self.add_token(TokenType::Slash)
-                 }
-            }
 
 
-            '"' => self.string(),
-
-            _ => {
-                if c.is_digit(10) {
-                    self.number();
-                } else if c.is_alphabetic() {
-                    self.identifier();
-                }else {
-                   panic!("{} Unexpected character.", self.line);
-                }
-            }
+    /// It’s like a conditional advance(). We only consume the current character if it’s what we’re looking for.
+    ///
+    ///
+    fn match_char( &mut self, expected: char) -> bool{
+        if self.is_at_end()  {
+            return false
+        }
+        if self.peek() != expected {
+            return false
         }
 
+        self.advance();
+
+        true
     }
 
 }
 
-
 #[cfg(test)]
 mod tests {
+    use std::slice;
+    use std::str;
     use crate::scanner::Scanner;
 
     #[test]
+     fn pointer_test() {
+
+
+        let s: &str = "à23";
+        let ptr: *const u8 = s.as_ptr();
+
+        unsafe {
+            let c1 = *ptr.offset(1) as u32;
+            println!("{}", std::char::from_u32_unchecked(c1) );
+            println!("{}", *ptr.offset(2) as char);
+        }
+
+    }
+
+
+    #[test]
     fn basic_sum() {
-       let mut scanner = Scanner::new("1 + 1".to_string());
-        scanner.scan_tokens();
-        println!("{:?}", scanner.tokens);
+        let mut scanner = Scanner::new("1 + 1");
+        scanner.start();
+
     }
 
     #[test]
     fn var_set() {
-        let mut scanner = Scanner::new("var a = !((1+1)< 0)".to_string());
-        scanner.scan_tokens();
-        println!("{:?}", scanner.tokens);
+        let mut scanner = Scanner::new("var a = !((1+1)< 0)");
+        scanner.start();
     }
 
     #[test]
     fn multiline() {
-        let mut scanner = Scanner::new("var a = 1+1\nvar b =  false".to_string());
-        scanner.scan_tokens();
-        println!("{:?}", scanner.tokens);
+        let mut scanner = Scanner::new("var a = 1+1\nvar b = false");
+        scanner.start();
     }
 
     #[test]
     fn string() {
-        let mut scanner = Scanner::new("var a = \"hello world\"".to_string());
-        scanner.scan_tokens();
-        println!("{:?}", scanner.tokens);
+        let mut scanner = Scanner::new("var a = \"hello world\"");
+        scanner.start();
     }
 
 }

@@ -54,11 +54,24 @@ impl WritableChunk for Chunk {
             Opcode::OpReturn => {
                 return self.simple_instruction("OP_RETURN", offset);
             },
-            Opcode::OPNegate => {
+            Opcode::OpNegate => {
                 return self.simple_instruction("OP_NEGATE", offset);
             },
             Opcode::OpConstant(size) => {
                 return self.constant_instruction("OP_CONSTANT", offset, *size);
+            },
+
+            Opcode::OpAdd => {
+                return self.simple_instruction("OP_ADD", offset);
+            },
+            Opcode::OPSubtract => {
+                return self.simple_instruction("OP_SUBTRACT", offset);
+            },
+            Opcode::OPMultiply => {
+                return self.simple_instruction("OP_MULTIPLY", offset);
+            },
+            Opcode::OpDivide => {
+                return self.simple_instruction("OP_DIVIDE", offset);
             },
             _ => {
                 return offset + 1;
@@ -86,12 +99,12 @@ mod tests {
     use crate::vm::VM;
 
     #[test]
-    fn basic_sum() {
+    fn negate() {
         let mut chunk : Chunk = Chunk::new();
         let idx = chunk.add_constant(3.14);
 
         chunk.write_chunk(Opcode::OpConstant(idx));
-        chunk.write_chunk(Opcode::OPNegate);
+        chunk.write_chunk(Opcode::OpNegate);
         chunk.write_chunk(Opcode::OpReturn);
 
        chunk.disassemble_chunk();
@@ -100,4 +113,33 @@ mod tests {
         vm.interpret(&chunk);
 
     }
+
+    #[test]
+    fn basic_sum() {
+        let mut chunk : Chunk = Chunk::new();
+
+        let mut constant = chunk.add_constant(1.2);
+        chunk.write_chunk(Opcode::OpConstant(constant));
+
+        constant = chunk.add_constant(3.4);
+        chunk.write_chunk(Opcode::OpConstant(constant));
+
+        chunk.write_chunk(Opcode::OpAdd);
+
+        constant = chunk.add_constant(5.6);
+        chunk.write_chunk(Opcode::OpConstant(constant));
+
+        chunk.write_chunk(Opcode::OpDivide);
+        chunk.write_chunk(Opcode::OpNegate);
+        chunk.write_chunk(Opcode::OpReturn);
+
+
+
+        chunk.disassemble_chunk();
+
+        let mut vm = VM::new();
+        vm.interpret(&chunk);
+
+    }
+
 }

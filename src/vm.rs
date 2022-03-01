@@ -50,12 +50,36 @@ impl VM {
                     return InterpretResult::Ok
                 }
 
-                Opcode::OPNegate => {
+                Opcode::OpNegate => {
                     let value = -VM::pop(&mut self.stack);
                     {
                         VM::push(&mut self.stack, value);
                     }
 
+                }
+
+                Opcode::OpAdd => {
+                    let b = VM::pop(&mut self.stack);
+                    let a = VM::pop(&mut self.stack);
+                    VM::push(&mut self.stack, a + b);
+                }
+
+                Opcode::OPSubtract => {
+                    let b = VM::pop(&mut self.stack);
+                    let a = VM::pop(&mut self.stack);
+                    VM::push(&mut self.stack, a - b);
+                }
+
+                Opcode::OPMultiply => {
+                    let b = VM::pop(&mut self.stack);
+                    let a = VM::pop(&mut self.stack);
+                    VM::push(&mut self.stack, a * b);
+                }
+
+                Opcode::OpDivide => {
+                    let b = VM::pop(&mut self.stack);
+                    let a = VM::pop(&mut self.stack);
+                    VM::push(&mut self.stack, a / b);
                 }
 
             }

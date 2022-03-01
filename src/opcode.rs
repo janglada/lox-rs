@@ -1,6 +1,16 @@
 
 pub enum Opcode {
     OpConstant(usize),
-    OPNegate,
-    OpReturn
+
+    OpReturn,
+
+    /// unary
+    OpNegate,
+
+
+    /// binary
+    OpAdd,
+    OPSubtract,
+    OPMultiply,
+    OpDivide
 }
