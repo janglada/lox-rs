@@ -1,4 +1,5 @@
-use crate::chunk::{Chunk, WritableChunk};
+
+use crate::chunk::{Chunk, Value, WritableChunk};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
@@ -23,7 +24,7 @@ impl<'a> Compiler<'a> {
     }
 
     fn advance(&mut self) {
-        self.parser.previous = self.parser.current;
+        self.parser.previous = self.parser.current.clone();
         loop {
             self.parser.current = self.scanner.scan_token();
             match self.parser.current.token_type  {
@@ -86,6 +87,10 @@ impl<'a> Compiler<'a> {
         // self.current_chunk().write_chunk(byte);
     }
 
+    fn make_constant(&mut self, value: Value) -> usize{
+         self.compiling_chunk.add_constant(value)
+    }
+
     ///
     ///
     fn end_compiler(&mut self, ) {
@@ -97,7 +102,12 @@ impl<'a> Compiler<'a> {
     fn emit_return(&mut self, ) {
         self.emit_byte(Opcode::OpReturn)
     }
-
+    ///
+    ///
+    fn emit_constant(&mut self, value: f64 ) {
+        let idx = self.make_constant(value);
+        self.emit_byte(Opcode::OpConstant(idx))
+    }
     ///
     ///
     fn expression(&mut self) {
@@ -105,8 +115,33 @@ impl<'a> Compiler<'a> {
     }
 
     fn number(&mut self) {
-        self.parser.previous.start
+        match &self.parser.previous.token_type {
+            TokenType::Number(str_num) => {
+                let num = str_num.parse::<Value>().ok().unwrap();
+                self.emit_constant(num)
+            }
+            _ => panic!("unexpected token type")
+        }
     }
+
+    ///
+    ///
+    fn grouping(&mut self) {
+        self.expression();
+        self.consume(TokenType::RightParen, "Expected ')' after expression")
+    }
+
+    ///
+    ///
+    fn unary(&mut self) {
+        let token_type = &self.parser.previous.token_type.clone();
+        self.expression();
+        match token_type {
+            TokenType::Minus => self.emit_byte(Opcode::OpNegate),
+            _ => return
+        }
+    }
+
 
     ///
     ///

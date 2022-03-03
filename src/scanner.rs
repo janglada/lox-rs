@@ -12,6 +12,7 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self{
+        let v = source.chars().collect::<Vec<char>>();
         Self {
             input: source,
             source: source.chars().collect::<Vec<char>>(),
@@ -146,6 +147,21 @@ impl<'a> Scanner<'a> {
         c.is_alphabetic() || c == '_'
     }
 
+
+    fn make_string_token_type(&self) -> TokenType {
+        TokenType::String(self.get_token_text())
+    }
+
+    fn make_number_token_type(&self) -> TokenType {
+        TokenType::Number(self.get_token_text())
+    }
+
+    fn make_identifier_token_type(&self) -> TokenType {
+        TokenType::Identifier(self.get_token_text())
+    }
+    
+
+
     ///
     ///
     ///
@@ -153,13 +169,23 @@ impl<'a> Scanner<'a> {
         // dbg!("MAKE TOKEN {:?} {}...{}", token_type,  self.start, self.current);
         Token::new(
             token_type,
-
             self.start,
             self.current -self.start,
-            self.line,
-            self.source.as_slice()[self.start..self.current].coll
+            self.line
         )
 
+    }
+
+    fn get_token_text(&self) -> String{
+
+
+       // self.source[self.start..self.current].to_owned().as_slice()
+        // let v = self.source[self.start..self.current];
+        //
+        //
+        // .iter().collect::<String>()
+
+        self.source.iter().skip(self.start).take(self.current- self.start).collect::<String>()
     }
 
     ///
@@ -216,7 +242,7 @@ impl<'a> Scanner<'a> {
 
         // Trim the surrounding quotes.
 
-        return self.make_token(TokenType::String)
+        return self.make_token(self.make_string_token_type())
 
     }
 
@@ -239,7 +265,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        self.make_token(TokenType::Number)
+        self.make_token(self.make_number_token_type())
 
     }
 
@@ -254,7 +280,7 @@ impl<'a> Scanner<'a> {
 
             token_type
         } else {
-            TokenType::Identifier
+            self.make_identifier_token_type()
         }
 
         // println!("DEBUG REST {} ", rest);
@@ -305,10 +331,10 @@ impl<'a> Scanner<'a> {
                     'a' => self.check_keyword(2,3,"lse", TokenType::False),
                     'o' => self.check_keyword(2,1,"r", TokenType::For),
                     'u' => self.check_keyword(2,1,"n", TokenType::Fun),
-                    _ => TokenType::Identifier
+                    _ => self.make_identifier_token_type()
                 }
                } else {
-                   TokenType::Identifier
+                   self.make_identifier_token_type()
                }
             },
             't' => {
@@ -316,13 +342,13 @@ impl<'a> Scanner<'a> {
                     match self.source[self.start+1] {
                         'h' => self.check_keyword(2, 2, "is", TokenType::This),
                         'r' => self.check_keyword(2, 2, "ue", TokenType::True),
-                        _ => TokenType::Identifier
+                        _ => self.make_identifier_token_type()
                     }
                 }else {
-                    TokenType::Identifier
+                    self.make_identifier_token_type()
                 }
             }
-            _ => TokenType::Identifier
+            _ => self.make_identifier_token_type()
         };
         return self.make_token(token_type)
 
