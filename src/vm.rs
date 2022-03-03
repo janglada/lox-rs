@@ -1,5 +1,9 @@
 use crate::chunk::{Chunk, Value};
+use crate::compiler::Compiler;
+
 use crate::opcode::Opcode;
+use crate::parser::Parser;
+use crate::token::TokenType;
 
 pub struct VM {
     pub stack: Vec<Value>
@@ -34,7 +38,20 @@ impl VM {
         print!("VALUE = {} ", value)
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) -> InterpretResult {
+    pub fn interpret(&mut self, source: &str) -> InterpretResult {
+        let mut chunk = Chunk::new();
+        let mut compiler = Compiler::new(source, &mut chunk);
+        if !compiler.compile() {
+            return InterpretResult::CompileError;
+        }
+
+        self.run(&chunk)
+
+    }
+
+    ///
+    ///
+    pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
         for c in &chunk.op_codes
         {
             match c {
@@ -85,5 +102,33 @@ impl VM {
             }
         }
         return InterpretResult::RuntimeError
+    }
+
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::chunk::{Chunk, WritableChunk};
+    use crate::opcode::Opcode;
+    use crate::vm::{InterpretResult, VM};
+
+    #[test]
+    fn vm_basic() {
+
+
+        let mut vm = VM::new();
+        match vm.interpret("1 + 1") {
+            InterpretResult::Ok => {
+                println!("Ok")
+            }
+            InterpretResult::CompileError => {
+                println!("CompileError")
+            }
+            InterpretResult::RuntimeError => {
+                println!("RuntimeError")
+            }
+        }
+
     }
 }

@@ -72,7 +72,7 @@ impl<'a> Scanner<'a> {
     ///
     ///
     ///
-    fn scan_token(&mut self) ->Token {
+    pub fn scan_token(&mut self) ->Token {
         self.skip_whitespace();
 
         self.start = self.current;
@@ -156,7 +156,8 @@ impl<'a> Scanner<'a> {
 
             self.start,
             self.current -self.start,
-            self.line
+            self.line,
+            self.source.as_slice()[self.start..self.current].coll
         )
 
     }

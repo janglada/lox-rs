@@ -27,16 +27,17 @@ pub enum TokenType {
     And, Class, Else, False, Fun, For, If, Nil, Or,
     Print, Return, Super, This, True, Var, While,
 
+    Error,
+
     EOF
 }
-#[derive(Debug)]
-pub struct Token {
+#[derive(Debug, Copy, Clone)]
+pub struct Token<'a> {
     pub token_type: TokenType,
-   // pub lexeme: String,
     pub line: isize,
-
     pub start: usize,
     pub len: usize,
+    pub txt: &'a str
 }
 
 
@@ -46,9 +47,15 @@ pub struct Token {
 
 
 impl Token {
-    pub fn new(token_type:TokenType, start: usize, len: usize,    line: isize)-> Self {
+    pub fn new(token_type:TokenType, start: usize, len: usize,   line: isize, text: &str)-> Self {
         Token {
-            token_type, start, len,  line
+            token_type, start, len,  line, txt: text
+        }
+    }
+
+    pub fn dummy() -> Self {
+        Token {
+            token_type: TokenType::Nil, start: 0, len:0,  line:0, txt: ""
         }
     }
 }

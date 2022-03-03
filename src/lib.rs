@@ -7,3 +7,4 @@ mod opcode;
 mod vm;
 mod compiler;
 mod scanner;
+mod parser;

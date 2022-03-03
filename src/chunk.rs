@@ -9,7 +9,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    fn new() -> Chunk {
+    pub fn new() -> Chunk {
         Chunk {
             op_codes: Vec::new(),
             constants: Vec::new(),
@@ -110,7 +110,7 @@ mod tests {
        chunk.disassemble_chunk();
 
         let mut vm = VM::new();
-        vm.interpret(&chunk);
+        vm.run(&chunk);
 
     }
 
@@ -138,7 +138,7 @@ mod tests {
         chunk.disassemble_chunk();
 
         let mut vm = VM::new();
-        vm.interpret(&chunk);
+        vm.run(&chunk);
 
     }
 
