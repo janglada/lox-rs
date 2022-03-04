@@ -5,8 +5,7 @@ use std::fmt::{Debug, Formatter};
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use crate::token::TokenType;
-use crate::compiler::{binary, ChunkWriter, Compiler, grouping, unary, number};
-use crate::parser::Parser;
+use crate::compiler::{binary,  Compiler, grouping, unary, number};
 lazy_static! {
 
     static ref PARSER_RULES: HashMap<TokenType, ParserRule<'static>> = {

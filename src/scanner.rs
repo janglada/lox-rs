@@ -375,7 +375,6 @@ impl<'a> Scanner<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::slice;
     use std::str;
     use crate::scanner::Scanner;
 

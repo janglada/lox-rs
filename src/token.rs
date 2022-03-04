@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+
 use std::hash::{Hash, Hasher};
 
 
@@ -132,11 +132,6 @@ mod tests {
 
     #[test]
     fn test_prec() {
-
-
-        let t : TokenType = TokenType::And;
-
-
 
         println!(" {:?} {}", Precedence::Primary, Precedence::Primary as u8);
         println!(" {:?} {}", Precedence::Call, Precedence::Call as u8);

@@ -66,6 +66,10 @@ impl<'a>  ChunkWriter<'a> {
     fn make_constant(&mut self, value: Value) -> usize {
         self.chunk.add_constant(value)
     }
+
+    fn disassemble_chunk(&mut self) {
+        self.chunk.disassemble_chunk()
+    }
 }
 
 
@@ -117,15 +121,13 @@ impl<'a> Compiler<'a> {
     }
 
 
-
-
-
-
-
     ///
     ///
     fn end_compiler(&mut self, ) {
-        self.writer.emit_return(self.parser.previous.line)
+        self.writer.emit_return(self.parser.previous.line);
+        if let Ok(res) =  self.parser.result {
+            self.writer.disassemble_chunk();
+        }
     }
 
 
@@ -136,11 +138,9 @@ impl<'a> Compiler<'a> {
     }
 
 
-
     fn parse_precedence(&mut self, precedence: &Precedence) {
         self.advance();
         let prefix_rule = ParserRule::get_rule(&self.parser.previous.token_type).prefix;
-
 
         if prefix_rule.is_none() {
             self.error("Expect expression")

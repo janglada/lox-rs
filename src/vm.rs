@@ -2,8 +2,6 @@ use crate::chunk::{Chunk, Value};
 use crate::compiler::Compiler;
 
 use crate::opcode::Opcode;
-use crate::parser::Parser;
-use crate::token::TokenType;
 
 pub struct VM {
     pub stack: Vec<Value>
@@ -109,8 +107,6 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-    use crate::chunk::{Chunk, WritableChunk};
-    use crate::opcode::Opcode;
     use crate::vm::{InterpretResult, VM};
 
     #[test]
@@ -118,7 +114,7 @@ mod tests {
 
 
         let mut vm = VM::new();
-        match vm.interpret("1+1") {
+        match vm.interpret("1*2") {
             InterpretResult::Ok => {
                 println!("Ok")
             }
