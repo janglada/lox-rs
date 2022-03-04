@@ -1,27 +1,72 @@
-
-
+use num_traits::FromPrimitive;
 use crate::chunk::{Chunk, Value, WritableChunk};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
-use crate::precedence::Precedence;
+use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 
-
+#[derive(Debug)]
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     parser: Parser<'a>,
-    compiling_chunk: &'a mut Chunk
+    writer: ChunkWriter<'a>
 }
 
 
-pub trait ChunkWriter {
 
+///
+///
+#[derive(Debug)]
+pub struct ChunkWriter<'a> {
+    chunk: &'a mut Chunk
 }
-pub struct ChunkWriterImpl {
 
+
+
+impl<'a>  ChunkWriter<'a> {
+
+    fn new(chunk : &'a mut Chunk) ->  Self {
+        ChunkWriter {
+            chunk
+        }
+    }
+
+    ///
+    ///
+    fn emit_byte(&mut self, byte: Opcode, line: isize) {
+        self.write_chunk( byte, line);
+    }
+
+
+    ///
+    ///
+    fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode, line: isize) {
+        self.emit_byte(byte1, line);
+        self.emit_byte(byte2, line);
+    }
+
+    ///
+    ///
+    fn emit_return(&mut self, line: isize) {
+        self.emit_byte(Opcode::OpReturn, line)
+    }
+    ///
+    ///
+    fn emit_constant(&mut self, value: f64, line: isize) {
+        let idx = self.make_constant(value);
+        self.emit_byte(Opcode::OpConstant(idx), line)
+    }
+
+
+    fn write_chunk(&mut self, byte: Opcode, line: isize) {
+        self.chunk.write_chunk(byte);
+    }
+
+    fn make_constant(&mut self, value: Value) -> usize {
+        self.chunk.add_constant(value)
+    }
 }
-
 
 
 
@@ -29,7 +74,7 @@ impl<'a> Compiler<'a> {
 
     pub(crate) fn new(source:  &'a str, chunk: &'a mut Chunk) -> Self {
         Compiler {
-            scanner: Scanner::new(source), parser:Parser::new(), compiling_chunk: chunk
+            scanner: Scanner::new(source), parser:Parser::new(), writer: ChunkWriter::new(chunk)
         }
     }
 
@@ -70,109 +115,47 @@ impl<'a> Compiler<'a> {
         }
         self.error_at_current(message);
     }
-    ///
-    ///
-    pub fn emit_byte(&mut self, byte: Opcode) {
-        self.write_chunk( byte, self.parser.previous.line);
-    }
 
 
-    ///
-    ///
-    pub fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode) {
-       self.emit_byte(byte1);
-       self.emit_byte(byte2);
-    }
 
-    ///
-    ///
-    // fn current_chunk(&'a mut self) -> &'a mut Chunk {
-    //     self.compiling_chunk
-    // }
-    ///
-    ///
-    fn write_chunk(&mut self, byte: Opcode, line: isize ) {
-        self.compiling_chunk.write_chunk(byte);
-        // self.current_chunk().write_chunk(byte);
-    }
 
-    fn make_constant(&mut self, value: Value) -> usize{
-         self.compiling_chunk.add_constant(value)
-    }
+
+
 
     ///
     ///
     fn end_compiler(&mut self, ) {
-        self.emit_return();
+        self.writer.emit_return(self.parser.previous.line)
     }
 
-    ///
-    ///
-    fn emit_return(&mut self, ) {
-        self.emit_byte(Opcode::OpReturn)
-    }
-    ///
-    ///
-    fn emit_constant(&mut self, value: f64 ) {
-        let idx = self.make_constant(value);
-        self.emit_byte(Opcode::OpConstant(idx))
-    }
+
     ///
     ///
     fn expression(&mut self) {
         self.parse_precedence(&Precedence::Assigment)
     }
 
-    fn number(&mut self) {
-        match &self.parser.previous.token_type {
-            TokenType::Number(num) => {
 
-                self.emit_constant(*num)
-            }
-            _ => panic!("unexpected token type")
-        }
-    }
-
-    ///
-    ///
-    fn grouping(&mut self) {
-        self.expression();
-        self.consume(TokenType::RightParen, "Expected ')' after expression")
-    }
-
-    ///
-    ///
-    fn unary(&mut self) {
-        let token_type = &self.parser.previous.token_type.clone();
-        // compile the operand
-        self.parse_precedence(&Precedence::Unary);
-
-        // Emit the operator instruction
-        match token_type {
-            TokenType::Minus => self.emit_byte(Opcode::OpNegate),
-            _ => return
-        }
-    }
-    ///
-    ///
-    fn binary(&mut self) {
-        let token_type = &self.parser.previous.token_type.clone();
-        // compile the operand
-      //  let rule = self.getRule(token_type);
-       // self.parse_precedence()
-
-        // Emit the operator instruction
-        match token_type {
-            TokenType::Plus => self.emit_byte(Opcode::OpAdd),
-            TokenType::Minus => self.emit_byte(Opcode::OPSubtract),
-            TokenType::Star => self.emit_byte(Opcode::OPMultiply),
-            TokenType::Slash => self.emit_byte(Opcode::OpDivide),
-            _ => return
-        }
-    }
 
     fn parse_precedence(&mut self, precedence: &Precedence) {
+        self.advance();
+        let prefix_rule = ParserRule::get_rule(&self.parser.previous.token_type).prefix;
 
+
+        if prefix_rule.is_none() {
+            self.error("Expect expression")
+        } else {
+            prefix_rule.unwrap()(self);
+        }
+
+        while precedence <= ParserRule::get_rule(&self.parser.current.token_type).precedence
+        {
+            self.advance();
+            let infix_rule = ParserRule::get_rule(&self.parser.previous.token_type).prefix;
+            if infix_rule.is_some() {
+                infix_rule.unwrap()(self);
+            }
+        }
     }
 
 
@@ -210,5 +193,58 @@ impl<'a> Compiler<'a> {
     }
 }
 
+
+pub fn number(compiler: &mut Compiler) {
+    match &compiler.parser.previous.token_type {
+        TokenType::Number(num) => {
+            compiler.writer.emit_constant(*num, compiler.parser.previous.line)
+        }
+        _ => panic!("unexpected token type")
+    }
+}
+
+///
+///
+pub fn grouping(compiler: &mut Compiler) {
+    compiler.expression();
+    compiler.consume(TokenType::RightParen, "Expected ')' after expression")
+}
+
+///
+///
+pub fn unary(compiler: &mut Compiler) {
+
+    let token_type = &compiler.parser.previous.token_type.clone();
+    // compile the operand
+    compiler.parse_precedence(&Precedence::Unary);
+
+    // Emit the operator instruction
+    match token_type {
+        TokenType::Minus => compiler.writer.emit_byte(Opcode::OpNegate, compiler.parser.previous.line),
+        _ => return
+    }
+}
+///
+///
+pub fn binary(compiler: &mut Compiler) {
+    let token_type = &compiler.parser.previous.token_type.clone();
+    // compile the operand
+
+    let rule = ParserRule::get_rule(token_type);
+    let prec_u8 = (*rule.precedence )as u8;
+    let precedence:Precedence = FromPrimitive::from_u8(prec_u8 + 1).unwrap();
+    compiler.parse_precedence( &precedence);
+    //  let rule = self.getRule(token_type);
+    // self.parse_precedence()
+
+    // Emit the operator instruction
+    match token_type {
+        TokenType::Plus => compiler.writer.emit_byte(Opcode::OpAdd, compiler.parser.previous.line),
+        TokenType::Minus => compiler.writer.emit_byte(Opcode::OPSubtract, compiler.parser.previous.line),
+        TokenType::Star => compiler.writer.emit_byte(Opcode::OPMultiply, compiler.parser.previous.line),
+        TokenType::Slash => compiler.writer.emit_byte(Opcode::OpDivide, compiler.parser.previous.line),
+        _ => return
+    }
+}
 
 

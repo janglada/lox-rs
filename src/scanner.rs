@@ -1,6 +1,6 @@
 
 use crate::token::{Token, TokenType};
-
+#[derive(Debug)]
 pub struct Scanner<'a> {
     input: &'a str,
     source: Vec<char>,

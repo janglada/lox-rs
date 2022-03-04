@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
+extern crate num_derive;
 
 use std::{env, io};
 use std::fs::File;

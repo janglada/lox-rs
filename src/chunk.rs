@@ -2,7 +2,7 @@ use crate::opcode::Opcode;
 
 pub type Value = f64;
 pub type ConstantPool = Vec<f64>;
-
+#[derive(Debug)]
 pub struct Chunk {
     pub op_codes: Vec<Opcode>,
     pub constants: Vec<f64>

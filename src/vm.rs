@@ -118,17 +118,37 @@ mod tests {
 
 
         let mut vm = VM::new();
-        match vm.interpret("1 + 1") {
+        match vm.interpret("1+1") {
             InterpretResult::Ok => {
                 println!("Ok")
             }
             InterpretResult::CompileError => {
-                println!("CompileError")
+                panic!("CompileError")
             }
             InterpretResult::RuntimeError => {
-                println!("RuntimeError")
+                panic!("RuntimeError")
             }
         }
 
     }
+
+    #[test]
+    fn vm_unary() {
+
+
+        let mut vm = VM::new();
+        match vm.interpret("-1") {
+            InterpretResult::Ok => {
+                println!("Ok")
+            }
+            InterpretResult::CompileError => {
+                panic!("CompileError")
+            }
+            InterpretResult::RuntimeError => {
+                panic!("RuntimeError")
+            }
+        }
+
+    }
+
 }
