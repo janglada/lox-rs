@@ -153,7 +153,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn make_number_token_type(&self) -> TokenType {
-        TokenType::Number(self.get_token_text())
+        TokenType::Number(self.get_token_text().parse::<f64>().ok().unwrap())
     }
 
     fn make_identifier_token_type(&self) -> TokenType {

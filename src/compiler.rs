@@ -1,7 +1,9 @@
 
+
 use crate::chunk::{Chunk, Value, WritableChunk};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
+use crate::precedence::Precedence;
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 
@@ -10,6 +12,14 @@ pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     parser: Parser<'a>,
     compiling_chunk: &'a mut Chunk
+}
+
+
+pub trait ChunkWriter {
+
+}
+pub struct ChunkWriterImpl {
+
 }
 
 
@@ -39,8 +49,7 @@ impl<'a> Compiler<'a> {
 
     ///
     ///
-    pub  fn compile(&mut self) -> bool {
-
+    pub fn compile(&mut self) -> bool {
         self.parser.result =Ok(());
         self.parser.panic_mode = false;
         self.advance();
@@ -111,14 +120,14 @@ impl<'a> Compiler<'a> {
     ///
     ///
     fn expression(&mut self) {
-
+        self.parse_precedence(&Precedence::Assigment)
     }
 
     fn number(&mut self) {
         match &self.parser.previous.token_type {
-            TokenType::Number(str_num) => {
-                let num = str_num.parse::<Value>().ok().unwrap();
-                self.emit_constant(num)
+            TokenType::Number(num) => {
+
+                self.emit_constant(*num)
             }
             _ => panic!("unexpected token type")
         }
@@ -135,11 +144,35 @@ impl<'a> Compiler<'a> {
     ///
     fn unary(&mut self) {
         let token_type = &self.parser.previous.token_type.clone();
-        self.expression();
+        // compile the operand
+        self.parse_precedence(&Precedence::Unary);
+
+        // Emit the operator instruction
         match token_type {
             TokenType::Minus => self.emit_byte(Opcode::OpNegate),
             _ => return
         }
+    }
+    ///
+    ///
+    fn binary(&mut self) {
+        let token_type = &self.parser.previous.token_type.clone();
+        // compile the operand
+      //  let rule = self.getRule(token_type);
+       // self.parse_precedence()
+
+        // Emit the operator instruction
+        match token_type {
+            TokenType::Plus => self.emit_byte(Opcode::OpAdd),
+            TokenType::Minus => self.emit_byte(Opcode::OPSubtract),
+            TokenType::Star => self.emit_byte(Opcode::OPMultiply),
+            TokenType::Slash => self.emit_byte(Opcode::OpDivide),
+            _ => return
+        }
+    }
+
+    fn parse_precedence(&mut self, precedence: &Precedence) {
+
     }
 
 
