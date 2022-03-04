@@ -87,7 +87,9 @@ impl<'a> Compiler<'a> {
         loop {
             self.parser.current = self.scanner.scan_token();
             match self.parser.current.token_type  {
-                TokenType::Error => {  },
+                TokenType::Error => {
+                    println!("ERROR")
+                },
                 _ => {
 
                     break;
@@ -151,7 +153,7 @@ impl<'a> Compiler<'a> {
         while precedence <= ParserRule::get_rule(&self.parser.current.token_type).precedence
         {
             self.advance();
-            let infix_rule = ParserRule::get_rule(&self.parser.previous.token_type).prefix;
+            let infix_rule = ParserRule::get_rule(&self.parser.previous.token_type).infix;
             if infix_rule.is_some() {
                 infix_rule.unwrap()(self);
             }

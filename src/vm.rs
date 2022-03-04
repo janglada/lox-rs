@@ -109,12 +109,9 @@ impl VM {
 mod tests {
     use crate::vm::{InterpretResult, VM};
 
-    #[test]
-    fn vm_basic() {
-
-
+    fn assert_ok(s:&str) {
         let mut vm = VM::new();
-        match vm.interpret("1*2") {
+        match vm.interpret(s) {
             InterpretResult::Ok => {
                 println!("Ok")
             }
@@ -125,26 +122,27 @@ mod tests {
                 panic!("RuntimeError")
             }
         }
+    }
 
+    #[test]
+    fn vm_basic() {
+        assert_ok("1*2")
     }
 
     #[test]
     fn vm_unary() {
-
-
-        let mut vm = VM::new();
-        match vm.interpret("-1") {
-            InterpretResult::Ok => {
-                println!("Ok")
-            }
-            InterpretResult::CompileError => {
-                panic!("CompileError")
-            }
-            InterpretResult::RuntimeError => {
-                panic!("RuntimeError")
-            }
-        }
-
+        assert_ok("-1");
     }
-
+    #[test]
+    fn vm_number() {
+        assert_ok("1");
+    }
+    #[test]
+    fn vm_grouping() {
+        assert_ok("-(1)");
+    }
+    #[test]
+    fn vm_minus() {
+        assert_ok(" 2+5*10");
+    }
 }
