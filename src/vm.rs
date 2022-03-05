@@ -32,9 +32,22 @@ impl VM {
         stack.pop().unwrap()
     }
 
-    fn print_value(value: Value) {
-        print!("VALUE = {} ", value)
+    fn replace(stack: &mut Vec<Value>, value: &mut Value) {
+        stack.pop().unwrap();
+        stack.push(*value);
     }
+
+
+    fn print_value(value: Value) {
+        print!("VALUE = {:?} ", value)
+    }
+
+    ///
+    ///
+    fn peek(stack: &Vec<Value>, distance: usize) -> &Value{
+       stack.get(stack.len() - (distance +1)).unwrap()
+    }
+
 
     pub fn interpret(&mut self, source: &str) -> InterpretResult {
         let mut chunk = Chunk::new();
@@ -45,6 +58,20 @@ impl VM {
 
         self.run(&chunk)
 
+    }
+
+    fn runtime_error(&mut self, msg: &str,) {
+        eprintln!("Runtime error {}", msg);
+    }
+
+    pub fn ensure_number_binary_operands(&mut self) -> Result<(f64, f64), InterpretResult> {
+        if !VM::peek(&self.stack,0).is_number() || !VM::peek(&self.stack,1).is_number() {
+            self.runtime_error("Operands must be numbers");
+            return Err(InterpretResult::RuntimeError)
+        }
+        let b = *VM::pop(&mut self.stack).as_number().unwrap();
+        let a = *VM::pop(&mut self.stack).as_number().unwrap();
+        Ok((a, b))
     }
 
     ///
@@ -66,35 +93,69 @@ impl VM {
                 }
 
                 Opcode::OpNegate => {
-                    let value = -VM::pop(&mut self.stack);
-                    {
-                        VM::push(&mut self.stack, value);
+
+
+                    let mut_stack =  &mut self.stack;
+
+                    let value = VM::peek(mut_stack, 0 );
+                    // let value:Value = self.stack.as_mut().get_mut(len - (0 +1)).unwrap();
+                   // let value2 = VM::peek2(ptr, 0);
+                    match value.as_number() {
+                        Ok(f) => {
+                            VM::replace(mut_stack, &mut Value::Number(-*f));
+                            // VM::pop(mut_stack);
+                            // VM::push(mut_stack, Value::Number(-*f));
+                        }
+                        Err(msg) => {
+                            self.runtime_error("Operand must be a number")
+                        }
+                    }
+                }
+
+                Opcode::OpAdd => {
+
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Number(a + b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
                     }
 
                 }
 
-                Opcode::OpAdd => {
-                    let b = VM::pop(&mut self.stack);
-                    let a = VM::pop(&mut self.stack);
-                    VM::push(&mut self.stack, a + b);
-                }
-
                 Opcode::OPSubtract => {
-                    let b = VM::pop(&mut self.stack);
-                    let a = VM::pop(&mut self.stack);
-                    VM::push(&mut self.stack, a - b);
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Number(a - b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
                 }
 
                 Opcode::OPMultiply => {
-                    let b = VM::pop(&mut self.stack);
-                    let a = VM::pop(&mut self.stack);
-                    VM::push(&mut self.stack, a * b);
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Number(a * b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
                 }
 
                 Opcode::OpDivide => {
-                    let b = VM::pop(&mut self.stack);
-                    let a = VM::pop(&mut self.stack);
-                    VM::push(&mut self.stack, a / b);
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Number(a / b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
                 }
 
             }

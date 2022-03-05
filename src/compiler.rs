@@ -53,7 +53,7 @@ impl<'a>  ChunkWriter<'a> {
     }
     ///
     ///
-    fn emit_constant(&mut self, value: f64, line: isize) {
+    fn emit_constant(&mut self, value: Value, line: isize) {
         let idx = self.make_constant(value);
         self.emit_byte(Opcode::OpConstant(idx), line)
     }
@@ -199,7 +199,7 @@ impl<'a> Compiler<'a> {
 pub fn number(compiler: &mut Compiler) {
     match &compiler.parser.previous.token_type {
         TokenType::Number(num) => {
-            compiler.writer.emit_constant(*num, compiler.parser.previous.line)
+            compiler.writer.emit_constant(Value::Number(*num), compiler.parser.previous.line)
         }
         _ => panic!("unexpected token type")
     }
