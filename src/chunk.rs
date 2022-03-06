@@ -50,6 +50,8 @@ impl Value {
 }
 
 
+
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -123,6 +125,9 @@ impl WritableChunk for Chunk {
             Opcode::OpNegate => {
                 return self.simple_instruction("OP_NEGATE", offset);
             },
+            Opcode::OpNot => {
+                return self.simple_instruction("OP_NOT", offset);
+            },
             Opcode::OpConstant(size) => {
                 return self.constant_instruction("OP_CONSTANT", offset, *size);
             },
@@ -139,6 +144,9 @@ impl WritableChunk for Chunk {
             Opcode::OpDivide => {
                 return self.simple_instruction("OP_DIVIDE", offset);
             },
+            Opcode::OpFalse => return self.simple_instruction("OP_FALSE", offset),
+            Opcode::OpNil=> return self.simple_instruction("OP_NIL", offset),
+            Opcode::OpTrue => return self.simple_instruction("OP_TRUE", offset),
             _ => {
                 return offset + 1;
             }

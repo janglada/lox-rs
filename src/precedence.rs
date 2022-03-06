@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use crate::token::TokenType;
-use crate::compiler::{binary,  Compiler, grouping, unary, number};
+use crate::compiler::{binary,  Compiler, grouping, unary, number, literal};
 lazy_static! {
 
     static ref PARSER_RULES: HashMap<TokenType, ParserRule<'static>> = {
@@ -23,7 +23,7 @@ lazy_static! {
         m.insert(TokenType::SemiColon ,                     ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Slash ,                         ParserRule::new(None,           Some(binary),   &Precedence::Factor));
         m.insert(TokenType::Star ,                          ParserRule::new(None,           Some(binary),   &Precedence::Factor));
-        m.insert(TokenType::Bang ,                          ParserRule::new(None,           None,           &Precedence::None));
+        m.insert(TokenType::Bang ,                          ParserRule::new(Some(unary),    None,           &Precedence::None));
         m.insert(TokenType::BangEqual ,                     ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Equal ,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::EqualEqual ,                    ParserRule::new(None,           None,           &Precedence::None));
@@ -37,17 +37,17 @@ lazy_static! {
         m.insert(TokenType::And ,                           ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Class ,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Else ,                          ParserRule::new(None,           None,           &Precedence::None));
-        m.insert(TokenType::False ,                         ParserRule::new(None,           None,           &Precedence::None));
+        m.insert(TokenType::False ,                         ParserRule::new(Some(literal),  None,           &Precedence::None));
         m.insert(TokenType::Fun ,                           ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::For ,                           ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::If ,                            ParserRule::new(None,           None,           &Precedence::None));
-        m.insert(TokenType::Nil ,                           ParserRule::new(None,           None,           &Precedence::None));
+        m.insert(TokenType::Nil ,                           ParserRule::new(Some(literal),  None,           &Precedence::None));
         m.insert(TokenType::Or ,                            ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Print ,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Return,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Super ,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::This ,                          ParserRule::new(None,           None,           &Precedence::None));
-        m.insert(TokenType::True ,                          ParserRule::new(None,           None,           &Precedence::None));
+        m.insert(TokenType::True ,                          ParserRule::new(Some(literal),  None,           &Precedence::None));
         m.insert(TokenType::Var ,                           ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::While ,                         ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::Error ,                         ParserRule::new(None,           None,           &Precedence::None));
@@ -107,7 +107,7 @@ pub type ParseFn = fn(compiler: &mut Compiler);
 #[cfg(test)]
 mod tests {
     use num_traits::FromPrimitive;
-    use crate::precedence::{PARSER_RULES, ParserRule, Precedence};
+    use crate::precedence::{PARSER_RULES, Precedence};
     use crate::token::TokenType;
 
     #[test]

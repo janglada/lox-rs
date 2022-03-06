@@ -7,7 +7,7 @@ pub struct VM {
     pub stack: Vec<Value>
 }
 pub enum InterpretResult {
-    Ok,
+    Ok(Value),
     CompileError,
     RuntimeError
 }
@@ -39,7 +39,7 @@ impl VM {
 
 
     fn print_value(value: Value) {
-        print!("VALUE = {:?} ", value)
+        println!("{}", value)
     }
 
     ///
@@ -74,6 +74,17 @@ impl VM {
         Ok((a, b))
     }
 
+    pub fn ensure_bool_operand(&mut self) -> Result<bool, InterpretResult> {
+        if !VM::peek(&self.stack,0).is_bool() {
+            self.runtime_error("Operands must be boolean");
+            return Err(InterpretResult::RuntimeError)
+        }
+        let b = *VM::pop(&mut self.stack).as_bool().unwrap();
+
+        Ok(b)
+    }
+
+
     ///
     ///
     pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
@@ -83,13 +94,12 @@ impl VM {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.constants.get(*idx).unwrap();
                     VM::push(&mut self.stack,*const_val);
-                    println!("const val {}", const_val);
+                   // println!("const val {}", const_val);
                 }
                 Opcode::OpReturn => {
-
-                    VM::print_value(VM::pop(&mut self.stack));
-
-                    return InterpretResult::Ok
+                    let ret_val = VM::pop(&mut self.stack);
+                    VM::print_value(ret_val);
+                    return InterpretResult::Ok(ret_val.clone())
                 }
 
                 Opcode::OpNegate => {
@@ -156,6 +166,20 @@ impl VM {
                             return result
                         }
                     }
+                },
+                Opcode::OpFalse => VM::push(&mut self.stack, Value::Boolean(false)),
+                Opcode::OpNil => VM::push(&mut self.stack, Value::Nil),
+                Opcode::OpTrue =>  VM::push(&mut self.stack, Value::Boolean(true)),
+
+                Opcode::OpNot => {
+                    match self.ensure_bool_operand() {
+                        Ok(bool_operand) => {
+                            VM::push(&mut self.stack, Value::Boolean(!bool_operand))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
                 }
 
             }
@@ -170,11 +194,10 @@ impl VM {
 mod tests {
     use crate::vm::{InterpretResult, VM};
 
-    fn assert_ok(s:&str) {
-        let mut vm = VM::new();
+    fn assert_ok(vm: &mut VM, s:&str) {
         match vm.interpret(s) {
-            InterpretResult::Ok => {
-                println!("Ok")
+            InterpretResult::Ok(val) => {
+                println!("Ok {}", val);
             }
             InterpretResult::CompileError => {
                 panic!("CompileError")
@@ -187,23 +210,38 @@ mod tests {
 
     #[test]
     fn vm_basic() {
-        assert_ok("1*2")
+        assert_ok(&mut VM::new(), "1*2")
     }
 
     #[test]
     fn vm_unary() {
-        assert_ok("-1");
+        assert_ok(&mut VM::new(), "-1");
     }
     #[test]
     fn vm_number() {
-        assert_ok("1");
+        assert_ok(&mut VM::new(), "1");
     }
     #[test]
     fn vm_grouping() {
-        assert_ok("-(1)");
+        assert_ok(&mut VM::new(), "-(1)");
     }
     #[test]
     fn vm_minus() {
-        assert_ok(" 2+5*10");
+        assert_ok(&mut VM::new(), " 2+5*10");
     }
+
+    #[test]
+    fn vm_bool_t() {
+        assert_ok(&mut VM::new(),"true");
+    }
+
+    #[test]
+    fn vm_bool_f() {
+        assert_ok(&mut VM::new(),"false");
+    }
+    #[test]
+    fn vm_bool_not() {
+        assert_ok(&mut VM::new(),"!false");
+    }
+
 }

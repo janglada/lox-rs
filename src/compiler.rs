@@ -212,6 +212,19 @@ pub fn grouping(compiler: &mut Compiler) {
     compiler.consume(TokenType::RightParen, "Expected ')' after expression")
 }
 
+
+///
+///
+pub fn literal(compiler: &mut Compiler) {
+    let token_type = &compiler.parser.previous.token_type.clone();
+    match token_type {
+       TokenType::False => compiler.writer.emit_byte(Opcode::OpFalse,  compiler.parser.previous.line),
+       TokenType::Nil => compiler.writer.emit_byte(Opcode::OpNil,  compiler.parser.previous.line),
+       TokenType::True => compiler.writer.emit_byte(Opcode::OpTrue,  compiler.parser.previous.line),
+        _ => return
+    }
+}
+
 ///
 ///
 pub fn unary(compiler: &mut Compiler) {
@@ -222,6 +235,7 @@ pub fn unary(compiler: &mut Compiler) {
 
     // Emit the operator instruction
     match token_type {
+        TokenType::Bang => compiler.writer.emit_byte(Opcode::OpNot, compiler.parser.previous.line),
         TokenType::Minus => compiler.writer.emit_byte(Opcode::OpNegate, compiler.parser.previous.line),
         _ => return
     }

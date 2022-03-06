@@ -64,9 +64,12 @@ impl<'a> Scanner<'a> {
     fn advance(&mut self) -> char {
         let idx = self.current;
         self.current = self.current + 1;
-        unsafe {
-            *self.source.get_unchecked(idx)
-        }
+        // unsafe {
+        //     if idx >= self.source.len() {
+        //         eprintln!("WARNING, triying to access")
+        //     }
+            *self.source.get(idx).unwrap_or(&'\0')
+        // }
 
     }
 
@@ -96,7 +99,7 @@ impl<'a> Scanner<'a> {
             ';' => self.make_token(TokenType::SemiColon),
             '*' => self.make_token(TokenType::Star),
 
-            /// operators
+            // operators
             '!' => {
                 if self.match_char('=') {
                     return self.make_token(TokenType::BangEqual)

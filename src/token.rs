@@ -128,7 +128,6 @@ impl Token {
 #[cfg(test)]
 mod tests {
     use crate::precedence::Precedence;
-    use crate::token::TokenType;
 
     #[test]
     fn test_prec() {
