@@ -188,7 +188,8 @@ impl<'a> Scanner<'a> {
         //
         // .iter().collect::<String>()
 
-        self.source.iter().skip(self.start).take(self.current- self.start).collect::<String>()
+        String::from_iter(self.source.iter().skip(self.start).take(self.current - self.start))
+        // self.source.iter().skip(self.start).take(self.current- self.start).collect::<String>().as_str()
     }
 
     ///

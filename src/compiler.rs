@@ -1,10 +1,11 @@
 use num_traits::FromPrimitive;
-use crate::chunk::{Chunk, Value, WritableChunk};
+use crate::chunk::{Chunk, WritableChunk};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
+use crate::value::{ObjectValue, Value};
 
 #[derive(Debug)]
 pub struct Compiler<'a> {
@@ -200,6 +201,16 @@ pub fn number(compiler: &mut Compiler) {
     match &compiler.parser.previous.token_type {
         TokenType::Number(num) => {
             compiler.writer.emit_constant(Value::Number(*num), compiler.parser.previous.line)
+        }
+        _ => panic!("unexpected token type")
+    }
+}
+
+
+pub fn string(compiler: &mut Compiler) {
+    match &compiler.parser.previous.token_type {
+        TokenType::String(str) => {
+            compiler.writer.emit_constant(Value::Object(ObjectValue::String(str.clone())), compiler.parser.previous.line)
         }
         _ => panic!("unexpected token type")
     }

@@ -10,3 +10,4 @@ mod compiler;
 mod scanner;
 mod parser;
 mod precedence;
+mod value;

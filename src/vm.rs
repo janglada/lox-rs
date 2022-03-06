@@ -1,7 +1,7 @@
-use crate::chunk::{Chunk, Value};
+use crate::chunk::Chunk;
 use crate::compiler::Compiler;
-
 use crate::opcode::Opcode;
+use crate::value::Value;
 
 pub struct VM {
     pub stack: Vec<Value>
@@ -11,6 +11,21 @@ pub enum InterpretResult {
     CompileError,
     RuntimeError
 }
+
+
+macro_rules! binary_number_operation {
+  ($name:tt) => (
+        match self.ensure_number_binary_operands() {
+            Ok((a,b)) => {
+                VM::push(&mut self.stack, Value::Number(a $name b))
+            }
+            Err(result) => {
+                return result
+            }
+        }
+  )
+}
+
 
 impl VM {
 
@@ -144,6 +159,7 @@ impl VM {
 
                 Opcode::OpAdd => {
 
+
                     match self.ensure_number_binary_operands() {
                         Ok((a,b)) => {
                             VM::push(&mut self.stack, Value::Number(a + b))
@@ -276,10 +292,13 @@ mod tests {
 
 
     #[test]
-    fn vm_basic() {
+    fn vm_multiply() {
         assert_ok(&mut VM::new(), "1*2")
     }
-
+    #[test]
+    fn vm_add() {
+        assert_ok(&mut VM::new(), "1 + 2")
+    }
     #[test]
     fn vm_unary() {
         assert_ok(&mut VM::new(), "-1");
