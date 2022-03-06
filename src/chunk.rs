@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::chunk::Value::Boolean;
 use crate::opcode::Opcode;
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Value {
     Boolean(bool),
     Nil,
@@ -147,6 +147,10 @@ impl WritableChunk for Chunk {
             Opcode::OpFalse => return self.simple_instruction("OP_FALSE", offset),
             Opcode::OpNil=> return self.simple_instruction("OP_NIL", offset),
             Opcode::OpTrue => return self.simple_instruction("OP_TRUE", offset),
+
+            Opcode::OpEqual => return self.simple_instruction("OP_EQUAL", offset),
+            Opcode::OpGreater => return self.simple_instruction("OP_GREATER", offset),
+            Opcode::OpLess => return self.simple_instruction("OP_LESS", offset),
             _ => {
                 return offset + 1;
             }

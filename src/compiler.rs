@@ -259,6 +259,13 @@ pub fn binary(compiler: &mut Compiler) {
         TokenType::Minus => compiler.writer.emit_byte(Opcode::OPSubtract, compiler.parser.previous.line),
         TokenType::Star => compiler.writer.emit_byte(Opcode::OPMultiply, compiler.parser.previous.line),
         TokenType::Slash => compiler.writer.emit_byte(Opcode::OpDivide, compiler.parser.previous.line),
+
+        TokenType::BangEqual => compiler.writer.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
+        TokenType::EqualEqual => compiler.writer.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
+        TokenType::Greater => compiler.writer.emit_byte(Opcode::OpGreater, compiler.parser.previous.line),
+        TokenType::GreaterEqual => compiler.writer.emit_bytes(Opcode::OpLess, Opcode::OpNot, compiler.parser.previous.line),
+        TokenType::Less => compiler.writer.emit_byte(Opcode::OpLess, compiler.parser.previous.line),
+        TokenType::LessEqual => compiler.writer.emit_bytes(Opcode::OpGreater, Opcode::OpNot, compiler.parser.previous.line),
         _ => return
     }
 }

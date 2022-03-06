@@ -16,5 +16,9 @@ pub enum Opcode {
     OpAdd,
     OPSubtract,
     OPMultiply,
-    OpDivide
+    OpDivide,
+
+    OpEqual,
+    OpGreater,
+    OpLess
 }

@@ -64,6 +64,15 @@ impl VM {
         eprintln!("Runtime error {}", msg);
     }
 
+    pub fn ensure_number_operand(&mut self) -> Result<f64, InterpretResult> {
+        if !VM::peek(&self.stack,0).is_number()  {
+            self.runtime_error("Operand must be numbers");
+            return Err(InterpretResult::RuntimeError)
+        }
+        let a = *VM::pop(&mut self.stack).as_number().unwrap();
+        Ok(a)
+    }
+
     pub fn ensure_number_binary_operands(&mut self) -> Result<(f64, f64), InterpretResult> {
         if !VM::peek(&self.stack,0).is_number() || !VM::peek(&self.stack,1).is_number() {
             self.runtime_error("Operands must be numbers");
@@ -104,22 +113,33 @@ impl VM {
 
                 Opcode::OpNegate => {
 
-
-                    let mut_stack =  &mut self.stack;
-
-                    let value = VM::peek(mut_stack, 0 );
-                    // let value:Value = self.stack.as_mut().get_mut(len - (0 +1)).unwrap();
-                   // let value2 = VM::peek2(ptr, 0);
-                    match value.as_number() {
+                    match self.ensure_number_operand() {
                         Ok(f) => {
-                            VM::replace(mut_stack, &mut Value::Number(-*f));
-                            // VM::pop(mut_stack);
-                            // VM::push(mut_stack, Value::Number(-*f));
+                            // VM::replace(&mut self.stack, &mut Value::Number(-f));
+                             VM::push(&mut self.stack,  Value::Number(-f));
+
                         }
-                        Err(msg) => {
-                            self.runtime_error("Operand must be a number")
+                        Err(result) => {
+                            self.runtime_error("Operand must be a number");
+                            return result;
                         }
                     }
+                   //  let mut_stack =  &mut self.stack;
+                   //
+                   //  let value = VM::peek(mut_stack, 0 );
+                   //  // let value:Value = self.stack.as_mut().get_mut(len - (0 +1)).unwrap();
+                   // // let value2 = VM::peek2(ptr, 0);
+                   //  match value.as_number() {
+                   //      Ok(f) => {
+                   //          VM::replace(mut_stack, &mut Value::Number(-*f));
+                   //          // VM::pop(mut_stack);
+                   //          // VM::push(mut_stack, Value::Number(-*f));
+                   //      }
+                   //      Err(msg) => {
+                   //          self.runtime_error("Operand must be a number");
+                   //          return
+                   //      }
+                   //  }
                 }
 
                 Opcode::OpAdd => {
@@ -134,6 +154,9 @@ impl VM {
                     }
 
                 }
+
+
+
 
                 Opcode::OPSubtract => {
                     match self.ensure_number_binary_operands() {
@@ -182,6 +205,35 @@ impl VM {
                     }
                 }
 
+                Opcode::OpEqual =>  {
+                    let b = VM::pop(&mut self.stack);
+                    let a = VM::pop(&mut self.stack);
+                    VM::push(&mut self.stack, Value::Boolean(a == b))
+
+                }
+
+                Opcode::OpGreater => {
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Boolean(a > b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
+                }
+
+                Opcode::OpLess => {
+                    match self.ensure_number_binary_operands() {
+                        Ok((a,b)) => {
+                            VM::push(&mut self.stack, Value::Boolean(a < b))
+                        }
+                        Err(result) => {
+                            return result
+                        }
+                    }
+                }
+
             }
         }
         return InterpretResult::RuntimeError
@@ -207,6 +259,21 @@ mod tests {
             }
         }
     }
+
+    fn assert_runtime_error(vm: &mut VM, s:&str) {
+        match vm.interpret(s) {
+            InterpretResult::Ok(val) => {
+                panic!("Expected RuntimeError, found OK")
+            }
+            InterpretResult::CompileError => {
+                panic!("Expected RuntimeError, found CompileError")
+            }
+            InterpretResult::RuntimeError => {
+                println!("RuntimeError")
+            }
+        }
+    }
+
 
     #[test]
     fn vm_basic() {
@@ -243,5 +310,41 @@ mod tests {
     fn vm_bool_not() {
         assert_ok(&mut VM::new(),"!false");
     }
+    #[test]
+    fn vm_nil() {
+        assert_ok(&mut VM::new(),"nil");
+    }
+
+    #[test]
+    fn vm_not_nil() {
+        assert_runtime_error(&mut VM::new(),"!nil");
+    }
+
+    #[test]
+    fn vm_not_number() {
+        assert_runtime_error(&mut VM::new(),"!3.14");
+    }
+
+    #[test]
+    fn vm_negate_bool() {
+        assert_runtime_error(&mut VM::new(),"-false");
+    }
+    #[test]
+    fn vm_negate_nil() {
+        assert_runtime_error(&mut VM::new(),"-nil");
+    }
+
+    #[test]
+    fn vm_greater() {
+        assert_ok(&mut VM::new(),"2 > 1");
+        assert_ok(&mut VM::new(),"2 >= 1");
+    }
+
+    #[test]
+    fn vm_less() {
+        assert_ok(&mut VM::new(),"2 < 1");
+        assert_ok(&mut VM::new(),"2 <= 1");
+    }
+
 
 }
