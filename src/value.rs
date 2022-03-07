@@ -42,7 +42,7 @@ impl Value {
     }
     pub fn as_number(&self) -> Result<&f64, &str> {
         match self {
-            Value::Number(_) => {
+            Value::Number(c) => {
                 Ok(c)
             },
             _ => Err("Must be a number"),
