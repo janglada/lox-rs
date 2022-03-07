@@ -205,12 +205,14 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
+    use crate::value::Value;
     use crate::vm::{InterpretResult, VM};
 
-    fn assert_ok(vm: &mut VM, s:&str) {
+    fn assert_ok(vm: &mut VM, s:&str, expected_value: Value) {
         match vm.interpret(s) {
             InterpretResult::Ok(val) => {
                 println!("Ok {}", val);
+                assert_eq!(expected_value, val)
             }
             InterpretResult::CompileError => {
                 panic!("CompileError")
@@ -238,45 +240,45 @@ mod tests {
 
     #[test]
     fn vm_multiply() {
-        assert_ok(&mut VM::new(), "1*2")
+        assert_ok(&mut VM::new(), "1*2", Value::Number(2f64))
     }
     #[test]
     fn vm_add() {
-        assert_ok(&mut VM::new(), "1 + 2")
+        assert_ok(&mut VM::new(), "1 + 2", Value::Number(3f64))
     }
     #[test]
     fn vm_unary() {
-        assert_ok(&mut VM::new(), "-1");
+        assert_ok(&mut VM::new(), "-1", Value::Number(-1f64));
     }
     #[test]
     fn vm_number() {
-        assert_ok(&mut VM::new(), "1");
+        assert_ok(&mut VM::new(), "1", Value::Number(1f64));
     }
     #[test]
     fn vm_grouping() {
-        assert_ok(&mut VM::new(), "-(1)");
+        assert_ok(&mut VM::new(), "-(1)", Value::Number(-1f64));
     }
     #[test]
     fn vm_minus() {
-        assert_ok(&mut VM::new(), " 2+5*10");
+        assert_ok(&mut VM::new(), " 2+5*10", Value::Number(52f64));
     }
 
     #[test]
     fn vm_bool_t() {
-        assert_ok(&mut VM::new(),"true");
+        assert_ok(&mut VM::new(),"true", Value::Boolean(true));
     }
 
     #[test]
     fn vm_bool_f() {
-        assert_ok(&mut VM::new(),"false");
+        assert_ok(&mut VM::new(),"false", Value::Boolean(false));
     }
     #[test]
     fn vm_bool_not() {
-        assert_ok(&mut VM::new(),"!false");
+        assert_ok(&mut VM::new(),"!false", Value::Boolean(true));
     }
     #[test]
     fn vm_nil() {
-        assert_ok(&mut VM::new(),"nil");
+        assert_ok(&mut VM::new(),"nil", Value::Nil);
     }
 
     #[test]
@@ -300,15 +302,22 @@ mod tests {
 
     #[test]
     fn vm_greater() {
-        assert_ok(&mut VM::new(),"2 > 1");
-        assert_ok(&mut VM::new(),"2 >= 1");
+        assert_ok(&mut VM::new(),"2 > 1", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"2 >= 1", Value::Boolean(true));
     }
 
     #[test]
     fn vm_less() {
-        assert_ok(&mut VM::new(),"2 < 1");
-        assert_ok(&mut VM::new(),"2 <= 1");
+        assert_ok(&mut VM::new(),"2 < 1", Value::Boolean(false));
+        assert_ok(&mut VM::new(),"2 <= 1", Value::Boolean(false));
+    }
+    #[test]
+    fn vm_equal() {
+        assert_ok(&mut VM::new(),"2 == 2", Value::Boolean(true));
     }
 
-
+    #[test]
+    fn vm_equal_fail() {
+        assert_ok(&mut VM::new(),"2 == 2", Value::Boolean(true));
+    }
 }

@@ -17,7 +17,7 @@ pub enum Value {
 impl Value {
 
 
-    pub fn newString(str: &str) -> Value {
+    pub fn new_string(str: &str) -> Value {
         Value::Object(ObjectValue::String(str.to_owned()))
     }
 
