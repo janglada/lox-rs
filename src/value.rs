@@ -74,8 +74,8 @@ impl Display for Value {
             Value::Number(n) => {
                 write!(f, "{}", n)
             }
-            Value::Object(v) => {
-                write!(f, "Object {}", "[obj]]")
+            Value::Object(_v) => {
+                write!(f, "Object [obj]]")
             }
         }
     }

@@ -5,7 +5,7 @@ use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
-use crate::value::{ObjectValue, Value};
+use crate::value::{Value};
 
 #[derive(Debug)]
 pub struct Compiler<'a> {
@@ -60,7 +60,7 @@ impl<'a>  ChunkWriter<'a> {
     }
 
 
-    fn write_chunk(&mut self, byte: Opcode, line: isize) {
+    fn write_chunk(&mut self, byte: Opcode, _line: isize) {
         self.chunk.write_chunk(byte);
     }
 
@@ -128,7 +128,7 @@ impl<'a> Compiler<'a> {
     ///
     fn end_compiler(&mut self, ) {
         self.writer.emit_return(self.parser.previous.line);
-        if let Ok(res) =  self.parser.result {
+        if let Ok(_res) =  self.parser.result {
             self.writer.disassemble_chunk();
         }
     }
@@ -191,7 +191,7 @@ impl<'a> Compiler<'a> {
                 eprint!(" at {} {}", token.len, token.start);
             }
         }
-        eprint!(": {}\n", msg);
+        eprintln!(": {}", msg);
         self.parser.result = Err(msg);
     }
 }
@@ -232,7 +232,7 @@ pub fn literal(compiler: &mut Compiler) {
        TokenType::False => compiler.writer.emit_byte(Opcode::OpFalse,  compiler.parser.previous.line),
        TokenType::Nil => compiler.writer.emit_byte(Opcode::OpNil,  compiler.parser.previous.line),
        TokenType::True => compiler.writer.emit_byte(Opcode::OpTrue,  compiler.parser.previous.line),
-        _ => return
+        _ => {}
     }
 }
 
@@ -248,7 +248,7 @@ pub fn unary(compiler: &mut Compiler) {
     match token_type {
         TokenType::Bang => compiler.writer.emit_byte(Opcode::OpNot, compiler.parser.previous.line),
         TokenType::Minus => compiler.writer.emit_byte(Opcode::OpNegate, compiler.parser.previous.line),
-        _ => return
+        _ => {}
     }
 }
 ///
@@ -277,7 +277,7 @@ pub fn binary(compiler: &mut Compiler) {
         TokenType::GreaterEqual => compiler.writer.emit_bytes(Opcode::OpLess, Opcode::OpNot, compiler.parser.previous.line),
         TokenType::Less => compiler.writer.emit_byte(Opcode::OpLess, compiler.parser.previous.line),
         TokenType::LessEqual => compiler.writer.emit_bytes(Opcode::OpGreater, Opcode::OpNot, compiler.parser.previous.line),
-        _ => return
+        _ => {}
     }
 }
 

@@ -12,7 +12,7 @@ pub struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self{
-        let v = source.chars().collect::<Vec<char>>();
+        let _v = source.chars().collect::<Vec<char>>();
         Self {
             input: source,
             source: source.chars().collect::<Vec<char>>(),
@@ -63,7 +63,7 @@ impl<'a> Scanner<'a> {
 
     fn advance(&mut self) -> char {
         let idx = self.current;
-        self.current = self.current + 1;
+        self.current += 1;
         // unsafe {
         //     if idx >= self.source.len() {
         //         eprintln!("WARNING, triying to access")
@@ -102,31 +102,31 @@ impl<'a> Scanner<'a> {
             // operators
             '!' => {
                 if self.match_char('=') {
-                    return self.make_token(TokenType::BangEqual)
+                    self.make_token(TokenType::BangEqual)
                 } else {
-                    return self.make_token(TokenType::Bang)
+                    self.make_token(TokenType::Bang)
                 }
             }
             '=' => {
                 if self.match_char('=') {
-                    return self.make_token(TokenType::EqualEqual)
+                    self.make_token(TokenType::EqualEqual)
                 } else {
-                    return self.make_token(TokenType::Equal)
+                    self.make_token(TokenType::Equal)
                 }
             }
             '<' => {
                 if self.match_char('=') {
-                    return self.make_token(TokenType::LessEqual)
+                    self.make_token(TokenType::LessEqual)
                 } else {
-                    return self.make_token(TokenType::Less)
+                    self.make_token(TokenType::Less)
                 }
             }
 
             '>' => {
                 if self.match_char('=') {
-                    return self.make_token(TokenType::GreaterEqual)
+                    self.make_token(TokenType::GreaterEqual)
                 } else {
-                    return self.make_token(TokenType::Greater)
+                    self.make_token(TokenType::Greater)
                 }
             }
 
@@ -134,9 +134,9 @@ impl<'a> Scanner<'a> {
 
             _ => {
                 if c.is_digit(10) {
-                    return self.number();
+                    self.number()
                 } else if Scanner::is_alpha(c)  {
-                    return self.identifier(c);
+                    self.identifier(c)
                 } else {
                     panic!("Line: {} [{}] Unexpected character.", self.line, c);
                 }
@@ -204,7 +204,7 @@ impl<'a> Scanner<'a> {
                     self.advance();
                 }
                 '\n' => {
-                    self.line = self.line + 1;
+                    self.line += 1;
                     self.advance();
                 },
                 '/' => {
@@ -231,7 +231,7 @@ impl<'a> Scanner<'a> {
         while self.peek() != '"' && !self.is_at_end()
         {
             if self.peek() == '\n' {
-                self.line = self.line + 1
+                self.line += 1
             }
 
             self.advance();
@@ -246,7 +246,7 @@ impl<'a> Scanner<'a> {
 
         // Trim the surrounding quotes.
 
-        return self.make_token(self.make_string_token_type())
+        self.make_token(self.make_string_token_type())
 
     }
 
@@ -354,7 +354,7 @@ impl<'a> Scanner<'a> {
             }
             _ => self.make_identifier_token_type()
         };
-        return self.make_token(token_type)
+        self.make_token(token_type)
 
     }
 

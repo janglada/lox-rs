@@ -197,7 +197,7 @@ impl VM {
 
             }
         }
-        return InterpretResult::RuntimeError
+        InterpretResult::RuntimeError
     }
 
 }

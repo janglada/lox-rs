@@ -81,7 +81,7 @@ pub struct  ParserRule<'a> {
 }
 
 impl<'a> Debug for ParserRule<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -114,7 +114,7 @@ mod tests {
     fn test_prec() {
 
 
-        let t : TokenType = TokenType::And;
+        let _t : TokenType = TokenType::And;
         
 
 
@@ -147,19 +147,19 @@ mod tests {
 
 
         match  &PARSER_RULES.get(&TokenType::And).unwrap() {
-            &rule => {
+            &_rule => {
 
             }
         }
 
         match  &PARSER_RULES.get(&TokenType::Number(0.)).unwrap() {
-            &rule => {
+            &_rule => {
 
             }
         }
 
         match  &PARSER_RULES.get(&TokenType::Number(1.)).unwrap() {
-            &rule => {
+            &_rule => {
 
             }
         }

@@ -52,51 +52,51 @@ impl WritableChunk for Chunk {
         let opcode = self.op_codes.get(offset).unwrap();
         match opcode {
             Opcode::OpReturn => {
-                return self.simple_instruction("OP_RETURN", offset);
+                self.simple_instruction("OP_RETURN", offset)
             },
             Opcode::OpNegate => {
-                return self.simple_instruction("OP_NEGATE", offset);
+                self.simple_instruction("OP_NEGATE", offset)
             },
             Opcode::OpNot => {
-                return self.simple_instruction("OP_NOT", offset);
+                self.simple_instruction("OP_NOT", offset)
             },
             Opcode::OpConstant(size) => {
-                return self.constant_instruction("OP_CONSTANT", offset, *size);
+                self.constant_instruction("OP_CONSTANT", offset, *size)
             },
 
             Opcode::OpAdd => {
-                return self.simple_instruction("OP_ADD", offset);
+                self.simple_instruction("OP_ADD", offset)
             },
             Opcode::OPSubtract => {
-                return self.simple_instruction("OP_SUBTRACT", offset);
+                self.simple_instruction("OP_SUBTRACT", offset)
             },
             Opcode::OPMultiply => {
-                return self.simple_instruction("OP_MULTIPLY", offset);
+                self.simple_instruction("OP_MULTIPLY", offset)
             },
             Opcode::OpDivide => {
-                return self.simple_instruction("OP_DIVIDE", offset);
+                self.simple_instruction("OP_DIVIDE", offset)
             },
-            Opcode::OpFalse => return self.simple_instruction("OP_FALSE", offset),
-            Opcode::OpNil=> return self.simple_instruction("OP_NIL", offset),
-            Opcode::OpTrue => return self.simple_instruction("OP_TRUE", offset),
+            Opcode::OpFalse => self.simple_instruction("OP_FALSE", offset),
+            Opcode::OpNil=> self.simple_instruction("OP_NIL", offset),
+            Opcode::OpTrue => self.simple_instruction("OP_TRUE", offset),
 
-            Opcode::OpEqual => return self.simple_instruction("OP_EQUAL", offset),
-            Opcode::OpGreater => return self.simple_instruction("OP_GREATER", offset),
-            Opcode::OpLess => return self.simple_instruction("OP_LESS", offset),
+            Opcode::OpEqual => self.simple_instruction("OP_EQUAL", offset),
+            Opcode::OpGreater => self.simple_instruction("OP_GREATER", offset),
+            Opcode::OpLess => self.simple_instruction("OP_LESS", offset),
             _ => {
-                return offset + 1;
+                offset + 1
             }
         }
     }
 
     fn simple_instruction(&mut self, name: &str, offset: usize) -> usize {
-        print!("{: <12}\n", name);
+        println!("{: <12}", name);
         offset + 1
     }
 
     fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize) -> usize {
         let value = self.constants.get(const_idx).unwrap();
-        print!("{: <12} {} '{}'\n", name, const_idx, value);
+        println!("{: <12} {} '{}'", name, const_idx, value);
         offset + 1
     }
 }
