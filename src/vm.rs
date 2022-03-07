@@ -1,10 +1,12 @@
+use std::borrow::Borrow;
 use crate::chunk::Chunk;
 use crate::compiler::Compiler;
 use crate::opcode::Opcode;
+use crate::stack::Stack;
 use crate::value::Value;
 
 pub struct VM {
-    pub stack: Vec<Value>
+    pub stack: Stack<Value>
 }
 pub enum InterpretResult {
     Ok(Value),
@@ -31,29 +33,29 @@ impl VM {
 
     pub fn new() -> Self {
         VM {
-            stack: Vec::with_capacity(256)
+            stack: Stack::with_capacity(256)
         }
     }
 
     fn reset_stack(&mut self) {
-        self.stack.clear();
+        self.stack.reset_stack();
     }
 
-    fn push(stack: &mut Vec<Value>, value: Value) {
-        stack.push(value);
+    fn push(stack: &mut Vec<Value>, value: &Value) {
+        stack.push(value.borrow().clone());
     }
 
     fn pop(stack: &mut Vec<Value>) -> Value {
         stack.pop().unwrap()
     }
 
-    fn replace(stack: &mut Vec<Value>, value: &mut Value) {
+    fn replace(stack: &mut Vec<Value>, value: &Value) {
         stack.pop().unwrap();
-        stack.push(*value);
+        stack.push(value.borrow().clone());
     }
 
 
-    fn print_value(value: Value) {
+    fn print_value(value: &Value) {
         println!("{}", value)
     }
 
@@ -79,31 +81,31 @@ impl VM {
         eprintln!("Runtime error {}", msg);
     }
 
-    pub fn ensure_number_operand(&mut self) -> Result<f64, InterpretResult> {
-        if !VM::peek(&self.stack,0).is_number()  {
+    pub fn pop_operand_as_number(&mut self) -> Result<f64, InterpretResult> {
+        if !self.stack.peek(0).is_number()  {
             self.runtime_error("Operand must be numbers");
             return Err(InterpretResult::RuntimeError)
         }
-        let a = *VM::pop(&mut self.stack).as_number().unwrap();
-        Ok(a)
+
+        Ok(*self.stack.pop().as_number().unwrap())
     }
 
-    pub fn ensure_number_binary_operands(&mut self) -> Result<(f64, f64), InterpretResult> {
-        if !VM::peek(&self.stack,0).is_number() || !VM::peek(&self.stack,1).is_number() {
+    pub fn pop_operand_as_numbers(&mut self) -> Result<(f64, f64), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
             self.runtime_error("Operands must be numbers");
             return Err(InterpretResult::RuntimeError)
         }
-        let b = *VM::pop(&mut self.stack).as_number().unwrap();
-        let a = *VM::pop(&mut self.stack).as_number().unwrap();
+        let b = *self.stack.pop().as_number().unwrap();
+        let a = *self.stack.pop().as_number().unwrap();
         Ok((a, b))
     }
 
     pub fn ensure_bool_operand(&mut self) -> Result<bool, InterpretResult> {
-        if !VM::peek(&self.stack,0).is_bool() {
+        if !self.stack.peek(0).is_bool() {
             self.runtime_error("Operands must be boolean");
             return Err(InterpretResult::RuntimeError)
         }
-        let b = *VM::pop(&mut self.stack).as_bool().unwrap();
+        let b = *self.stack.pop().as_bool().unwrap();
 
         Ok(b)
     }
@@ -117,21 +119,21 @@ impl VM {
             match c {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.constants.get(*idx).unwrap();
-                    VM::push(&mut self.stack,*const_val);
+                    self.stack.push(const_val.borrow().clone());
                    // println!("const val {}", const_val);
                 }
                 Opcode::OpReturn => {
-                    let ret_val = VM::pop(&mut self.stack);
-                    VM::print_value(ret_val);
-                    return InterpretResult::Ok(ret_val.clone())
+                    let ret_val = self.stack.pop();
+                    VM::print_value(&ret_val);
+                    return InterpretResult::Ok(ret_val.borrow().clone())
                 }
 
                 Opcode::OpNegate => {
 
-                    match self.ensure_number_operand() {
+                    match self.pop_operand_as_number() {
                         Ok(f) => {
                             // VM::replace(&mut self.stack, &mut Value::Number(-f));
-                             VM::push(&mut self.stack,  Value::Number(-f));
+                            self.stack.push( Value::Number(-f));
 
                         }
                         Err(result) => {
@@ -160,9 +162,9 @@ impl VM {
                 Opcode::OpAdd => {
 
 
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Number(a + b))
+                             self.stack.push( Value::Number(a + b))
                         }
                         Err(result) => {
                             return result
@@ -175,9 +177,9 @@ impl VM {
 
 
                 Opcode::OPSubtract => {
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Number(a - b))
+                             self.stack.push( Value::Number(a - b))
                         }
                         Err(result) => {
                             return result
@@ -186,9 +188,9 @@ impl VM {
                 }
 
                 Opcode::OPMultiply => {
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Number(a * b))
+                             self.stack.push( Value::Number(a * b))
                         }
                         Err(result) => {
                             return result
@@ -197,23 +199,23 @@ impl VM {
                 }
 
                 Opcode::OpDivide => {
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Number(a / b))
+                             self.stack.push( Value::Number(a / b))
                         }
                         Err(result) => {
                             return result
                         }
                     }
                 },
-                Opcode::OpFalse => VM::push(&mut self.stack, Value::Boolean(false)),
-                Opcode::OpNil => VM::push(&mut self.stack, Value::Nil),
-                Opcode::OpTrue =>  VM::push(&mut self.stack, Value::Boolean(true)),
+                Opcode::OpFalse =>  self.stack.push( Value::Boolean(false)),
+                Opcode::OpNil =>  self.stack.push( Value::Nil),
+                Opcode::OpTrue =>   self.stack.push( Value::Boolean(true)),
 
                 Opcode::OpNot => {
                     match self.ensure_bool_operand() {
                         Ok(bool_operand) => {
-                            VM::push(&mut self.stack, Value::Boolean(!bool_operand))
+                             self.stack.push( Value::Boolean(!bool_operand))
                         }
                         Err(result) => {
                             return result
@@ -222,16 +224,16 @@ impl VM {
                 }
 
                 Opcode::OpEqual =>  {
-                    let b = VM::pop(&mut self.stack);
-                    let a = VM::pop(&mut self.stack);
-                    VM::push(&mut self.stack, Value::Boolean(a == b))
+                    let b = self.stack.pop();
+                    let a = self.stack.pop();
+                     self.stack.push( Value::Boolean(a == b))
 
                 }
 
                 Opcode::OpGreater => {
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Boolean(a > b))
+                             self.stack.push( Value::Boolean(a > b))
                         }
                         Err(result) => {
                             return result
@@ -240,9 +242,9 @@ impl VM {
                 }
 
                 Opcode::OpLess => {
-                    match self.ensure_number_binary_operands() {
+                    match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                            VM::push(&mut self.stack, Value::Boolean(a < b))
+                             self.stack.push( Value::Boolean(a < b))
                         }
                         Err(result) => {
                             return result

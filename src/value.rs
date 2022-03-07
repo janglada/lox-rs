@@ -1,11 +1,13 @@
+use std::cell::Ref;
 use std::fmt::{Display, Formatter};
+use std::str::Chars;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ObjectValue {
     String(String)
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Boolean(bool),
     Nil,
@@ -14,6 +16,12 @@ pub enum Value {
 }
 
 impl Value {
+
+
+    pub fn newString(str: &str) -> Value {
+        Value::Object(ObjectValue::String(str.to_owned()))
+    }
+
 
     pub fn is_number(&self) -> bool {
         match self {

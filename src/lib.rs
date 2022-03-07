@@ -11,3 +11,4 @@ mod scanner;
 mod parser;
 mod precedence;
 mod value;
+mod stack;
