@@ -1,8 +1,6 @@
-use std::fmt::{Display, Formatter};
 use crate::opcode::Opcode;
 use crate::value::Value;
 
-pub type ConstantPool = Vec<f64>;
 
 #[derive(Debug)]
 pub struct Chunk {

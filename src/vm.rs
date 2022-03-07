@@ -15,20 +15,6 @@ pub enum InterpretResult {
 }
 
 
-macro_rules! binary_number_operation {
-  ($name:tt) => (
-        match self.ensure_number_binary_operands() {
-            Ok((a,b)) => {
-                VM::push(&mut self.stack, Value::Number(a $name b))
-            }
-            Err(result) => {
-                return result
-            }
-        }
-  )
-}
-
-
 impl VM {
 
     pub fn new() -> Self {
@@ -37,34 +23,9 @@ impl VM {
         }
     }
 
-    fn reset_stack(&mut self) {
-        self.stack.reset_stack();
-    }
-
-    fn push(stack: &mut Vec<Value>, value: &Value) {
-        stack.push(value.borrow().clone());
-    }
-
-    fn pop(stack: &mut Vec<Value>) -> Value {
-        stack.pop().unwrap()
-    }
-
-    fn replace(stack: &mut Vec<Value>, value: &Value) {
-        stack.pop().unwrap();
-        stack.push(value.borrow().clone());
-    }
-
-
     fn print_value(value: &Value) {
         println!("{}", value)
     }
-
-    ///
-    ///
-    fn peek(stack: &Vec<Value>, distance: usize) -> &Value{
-       stack.get(stack.len() - (distance +1)).unwrap()
-    }
-
 
     pub fn interpret(&mut self, source: &str) -> InterpretResult {
         let mut chunk = Chunk::new();
@@ -100,7 +61,7 @@ impl VM {
         Ok((a, b))
     }
 
-    pub fn ensure_bool_operand(&mut self) -> Result<bool, InterpretResult> {
+    pub fn pop_operand_as_bool(&mut self) -> Result<bool, InterpretResult> {
         if !self.stack.peek(0).is_bool() {
             self.runtime_error("Operands must be boolean");
             return Err(InterpretResult::RuntimeError)
@@ -141,26 +102,9 @@ impl VM {
                             return result;
                         }
                     }
-                   //  let mut_stack =  &mut self.stack;
-                   //
-                   //  let value = VM::peek(mut_stack, 0 );
-                   //  // let value:Value = self.stack.as_mut().get_mut(len - (0 +1)).unwrap();
-                   // // let value2 = VM::peek2(ptr, 0);
-                   //  match value.as_number() {
-                   //      Ok(f) => {
-                   //          VM::replace(mut_stack, &mut Value::Number(-*f));
-                   //          // VM::pop(mut_stack);
-                   //          // VM::push(mut_stack, Value::Number(-*f));
-                   //      }
-                   //      Err(msg) => {
-                   //          self.runtime_error("Operand must be a number");
-                   //          return
-                   //      }
-                   //  }
                 }
 
                 Opcode::OpAdd => {
-
 
                     match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
@@ -170,7 +114,6 @@ impl VM {
                             return result
                         }
                     }
-
                 }
 
 
@@ -213,7 +156,7 @@ impl VM {
                 Opcode::OpTrue =>   self.stack.push( Value::Boolean(true)),
 
                 Opcode::OpNot => {
-                    match self.ensure_bool_operand() {
+                    match self.pop_operand_as_bool() {
                         Ok(bool_operand) => {
                              self.stack.push( Value::Boolean(!bool_operand))
                         }
@@ -281,7 +224,7 @@ mod tests {
     fn assert_runtime_error(vm: &mut VM, s:&str) {
         match vm.interpret(s) {
             InterpretResult::Ok(val) => {
-                panic!("Expected RuntimeError, found OK")
+                panic!("Expected RuntimeError, found OK({})", val)
             }
             InterpretResult::CompileError => {
                 panic!("Expected RuntimeError, found CompileError")

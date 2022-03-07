@@ -1,6 +1,5 @@
-use std::cell::Ref;
+
 use std::fmt::{Display, Formatter};
-use std::str::Chars;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObjectValue {
@@ -26,7 +25,7 @@ impl Value {
     pub fn is_number(&self) -> bool {
         match self {
 
-            Value::Number(c) => {
+            Value::Number(_) => {
                 true
             },
             _ => false,
@@ -35,7 +34,7 @@ impl Value {
     pub fn is_bool(&self) -> bool {
         match self {
 
-            Value::Boolean(c) => {
+            Value::Boolean(_) => {
                 true
             },
             _ => false,
@@ -43,7 +42,7 @@ impl Value {
     }
     pub fn as_number(&self) -> Result<&f64, &str> {
         match self {
-            Value::Number(c) => {
+            Value::Number(_) => {
                 Ok(c)
             },
             _ => Err("Must be a number"),
