@@ -1,6 +1,8 @@
 #[derive(Debug)]
 pub enum Opcode {
     OpConstant(usize),
+    OpDefineGlobal(usize),
+    OpGetGlobal(usize),
     OpNil,
     OpTrue,
     OpFalse,
@@ -23,5 +25,7 @@ pub enum Opcode {
     OpLess,
 
     OpPrint,
-    OpPop
+    OpPop,
+
+
 }

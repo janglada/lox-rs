@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use crate::token::TokenType;
-use crate::compiler::{binary,  Compiler, grouping, unary, number, string, literal};
+use crate::compiler::{binary,  Compiler, grouping, unary, number, string, literal, variable};
 lazy_static! {
 
     static ref PARSER_RULES: HashMap<TokenType, ParserRule<'static>> = {
@@ -31,7 +31,7 @@ lazy_static! {
         m.insert(TokenType::GreaterEqual ,                  ParserRule::new(None,           Some(binary),   &Precedence::Comparison));
         m.insert(TokenType::Less ,                          ParserRule::new(None,           Some(binary),   &Precedence::Comparison));
         m.insert(TokenType::LessEqual ,                     ParserRule::new(None,           Some(binary),   &Precedence::Comparison));
-        m.insert(TokenType::Identifier("".to_string()),     ParserRule::new(None,           None,           &Precedence::None));
+        m.insert(TokenType::Identifier("".to_string()),     ParserRule::new(Some(variable), None,           &Precedence::None));
         m.insert(TokenType::String("".to_string()) ,        ParserRule::new(Some(string),   None,           &Precedence::None));
         m.insert(TokenType::Number(0.) ,                    ParserRule::new(Some(number),   None,           &Precedence::None));
         m.insert(TokenType::And ,                           ParserRule::new(None,           None,           &Precedence::None));

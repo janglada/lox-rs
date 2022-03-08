@@ -107,8 +107,13 @@ impl Display for Value {
             Value::Number(n) => {
                 write!(f, "{}", n)
             }
-            Value::Object(_v) => {
-                write!(f, "Object [obj]]")
+            Value::Object(obj) => {
+                match obj {
+                    ObjectValue::String(s) => {
+                        write!(f, "{}", s)
+                    }
+                }
+
             }
         }
     }

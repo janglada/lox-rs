@@ -1,12 +1,15 @@
 use std::borrow::Borrow;
-use crate::chunk::Chunk;
+use std::collections::HashMap;
+use std::iter::Map;
+use crate::chunk::{Chunk, WritableChunk};
 use crate::compiler::Compiler;
 use crate::opcode::Opcode;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
 
 pub struct VM {
-    pub stack: Stack<Value>
+    pub stack: Stack<Value>,
+    pub globals: HashMap<String, Value>
 }
 pub enum InterpretResult {
     Ok(Option<Value>),
@@ -19,7 +22,8 @@ impl VM {
 
     pub fn new() -> Self {
         VM {
-            stack: Stack::with_capacity(256)
+            stack: Stack::with_capacity(256),
+            globals: HashMap::new()
         }
     }
 
@@ -81,7 +85,9 @@ impl VM {
     ///
     ///
     pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
-        for c in &chunk.op_codes
+        // for c in &chunk.op_codes
+        let mut op_code_iter = chunk.op_codes.iter();
+        while let Some(c) = op_code_iter.next()
         {
             match c {
                 Opcode::OpConstant(idx) => {
@@ -237,6 +243,22 @@ impl VM {
                     println!("{}", self.stack.pop());
                 }
 
+                Opcode::OpDefineGlobal(index) => {
+                    let name = chunk.read_constant(*index).unwrap().as_string().ok().unwrap();
+                    self.globals.insert(name.to_string(), self.stack.peek(0).borrow().clone());
+                }
+                Opcode::OpGetGlobal(index) => {
+                    let name = chunk.read_constant(*index).unwrap().as_string().ok().unwrap();
+                    match self.globals.get(name){
+                        Some(value) => {
+                            self.stack.push(value.borrow().clone());
+                        },
+                        None => {
+                            self.runtime_error(format!("Undefined variable {}", name).as_str());
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
                 Opcode::OpPop => {
                     self.stack.pop();
                 }
@@ -405,5 +427,12 @@ mod tests {
     fn vm_print_expr() {
         assert_ok(&mut VM::new(),"print 1 + 2;", Value::Object(ObjectValue::String("Ab".to_string())));
     }
-
+    #[test]
+    fn vm_global_get() {
+        assert_ok(&mut VM::new(),r#"
+        var beverage = "cafe au lait";
+        var breakfast = "beignets with" + beverage ;
+        print breakfast;
+        "#, Value::Object(ObjectValue::String("beignets withcafe au lait".to_string())));
+    }
 }

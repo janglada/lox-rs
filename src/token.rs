@@ -128,6 +128,7 @@ impl Token {
 #[cfg(test)]
 mod tests {
     use crate::precedence::Precedence;
+    use crate::token::TokenType;
 
     #[test]
     fn test_prec() {
@@ -137,5 +138,15 @@ mod tests {
         println!(" {:?} {}", Precedence::None, Precedence::None as u8);
         assert!((Precedence::Primary ) > (Precedence::Call ));
         assert!(!((Precedence::None ) > (Precedence::Call )));
+    }
+
+
+    #[test]
+    fn test_token_eq() {
+        assert_eq!(TokenType::Identifier("A".to_string()), TokenType::Identifier("B".to_string()))
+    }
+    #[test]
+    fn test_token_neq() {
+        assert_ne!(TokenType::Identifier("A".to_string()), TokenType::SemiColon)
     }
 }

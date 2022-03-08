@@ -20,6 +20,7 @@ impl Chunk {
 pub trait WritableChunk {
     fn write_chunk(&mut self, bytes: Opcode);
     fn add_constant(&mut self, value: Value) -> usize;
+    fn read_constant(&self, index : usize) -> Option<&Value>;
     fn disassemble_chunk(&mut self);
     fn disassemble_instruction(&mut self, offset: usize) -> usize;
     fn simple_instruction(&mut self, name: &str, offset: usize) -> usize;
@@ -36,6 +37,10 @@ impl WritableChunk for Chunk {
     fn add_constant(&mut self, value: Value) -> usize {
         self.constants.push(value);
         self.constants.len() - 1
+    }
+
+    fn read_constant(&self, index : usize) -> Option<&Value>{
+        self.constants.get(index)
     }
 
     fn disassemble_chunk(&mut self) {
@@ -63,7 +68,12 @@ impl WritableChunk for Chunk {
             Opcode::OpConstant(size) => {
                 self.constant_instruction("OP_CONSTANT", offset, *size)
             },
-
+            Opcode::OpDefineGlobal(size) => {
+                self.constant_instruction("OP_DEFINE_GLOBAL", offset, *size)
+            },
+            Opcode::OpGetGlobal(size) => {
+                self.constant_instruction("OP_GET_GLOBAL", offset, *size)
+            },
             Opcode::OpAdd => {
                 self.simple_instruction("OP_ADD", offset)
             },

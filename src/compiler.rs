@@ -5,7 +5,7 @@ use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
-use crate::value::{Value};
+use crate::value::{ObjectValue, Value};
 
 #[derive(Debug)]
 pub struct Compiler<'a> {
@@ -120,10 +120,49 @@ impl<'a> Compiler<'a> {
     ///
     ///
     fn declaration(&mut self) {
-        self.statement();
+
+        if self.match_token(TokenType::Var) {
+            self.var_declaration()
+        } else {
+            self.statement();
+        }
         if self.parser.panic_mode {
             self.synchronize();
         }
+    }
+
+    fn var_declaration(&mut self) {
+        let index = self.parse_variable("Expect variable name");
+        if self.match_token(TokenType::Equal) {
+            self.expression()
+        } else {
+            self.writer.emit_byte(Opcode::OpNil,   self.parser.previous.line);
+        }
+
+        self.consume(TokenType::SemiColon, "Expect ';' after value");
+
+        self.define_variable(index);
+
+    }
+
+    fn parse_variable(&mut self, msg: &'a str) -> usize{
+        self.consume(TokenType::Identifier("".to_string()), msg);
+        self.identifier_constant()
+
+    }
+    fn identifier_constant(&mut self) -> usize{
+        match &self.parser.previous.token_type {
+            TokenType::Identifier(name) => {
+                self.writer.make_constant(Value::Object(ObjectValue::String(name.to_string())))
+            }
+            _ => panic!("should not happen")
+        }
+
+    }
+
+    fn define_variable(&mut self, index: usize) {
+        self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
+
     }
 
     ///
@@ -294,6 +333,14 @@ pub fn string(compiler: &mut Compiler) {
         }
         _ => panic!("unexpected token type")
     }
+}
+pub fn variable(compiler: &mut Compiler) {
+    named_variable(compiler);
+}
+
+pub fn named_variable(compiler: &mut Compiler) {
+    let index = compiler.identifier_constant();
+    compiler.writer.emit_byte(Opcode::OpGetGlobal(index), compiler.parser.previous.line)
 }
 
 ///
