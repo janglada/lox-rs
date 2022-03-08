@@ -210,6 +210,7 @@ pub fn number(compiler: &mut Compiler) {
 pub fn string(compiler: &mut Compiler) {
     match &compiler.parser.previous.token_type {
         TokenType::String(str) => {
+            dbg!(str);
             compiler.writer.emit_constant(Value::new_string(str), compiler.parser.previous.line)
         }
         _ => panic!("unexpected token type")

@@ -40,6 +40,22 @@ impl Value {
             _ => false,
         }
     }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+
+            Value::Object(s) => {
+                match s {
+                    ObjectValue::String(str) => {
+                        true
+                    },
+                    _ => false,
+                }
+            },
+            _ => false,
+        }
+    }
+
     pub fn as_number(&self) -> Result<&f64, &str> {
         match self {
             Value::Number(c) => {
@@ -58,6 +74,23 @@ impl Value {
             _ => Err("Must be a boolean"),
         }
     }
+
+
+    pub fn as_string(&self) -> Result<&String, &str> {
+        match self {
+
+            Value::Object(s) => {
+                match s {
+                    ObjectValue::String(str) => {
+                        Ok(str)
+                    },
+                    _ => Err("Must be a string"),
+                }
+            },
+            _ => Err("Must be a obj string"),
+        }
+    }
+
 
 }
 
@@ -78,5 +111,39 @@ impl Display for Value {
                 write!(f, "Object [obj]]")
             }
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::value::{ObjectValue, Value};
+
+    #[test]
+    fn assert_eqs(){
+        assert_eq!(
+            Value::Object(ObjectValue::String("A".to_string())),
+            Value::Object(ObjectValue::String("A".to_string()))
+        );
+
+        assert_ne!(
+            Value::Object(ObjectValue::String("A".to_string())),
+            Value::Object(ObjectValue::String("B".to_string()))
+        );
+
+        assert_ne!(
+            Value::Object(ObjectValue::String("A".to_string())),
+            Value::Number(1f64)
+        );
+
+
+        assert_eq!(
+            Value::Number(3.1),
+            Value::Number(3.1),
+        );
+
+        assert_ne!(
+            Value::Number(2.0),
+            Value::Number(1f64)
+        );
+
     }
 }

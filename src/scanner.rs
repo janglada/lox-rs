@@ -152,7 +152,10 @@ impl<'a> Scanner<'a> {
 
 
     fn make_string_token_type(&self) -> TokenType {
-        TokenType::String(self.get_token_text())
+        let mut s =  self.get_token_text();
+        s.pop();
+        s.remove(0);
+        TokenType::String(s)
     }
 
     fn make_number_token_type(&self) -> TokenType {
@@ -245,7 +248,6 @@ impl<'a> Scanner<'a> {
         self.advance();
 
         // Trim the surrounding quotes.
-
         self.make_token(self.make_string_token_type())
 
     }

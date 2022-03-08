@@ -3,7 +3,7 @@ use crate::chunk::Chunk;
 use crate::compiler::Compiler;
 use crate::opcode::Opcode;
 use crate::stack::Stack;
-use crate::value::Value;
+use crate::value::{ObjectValue, Value};
 
 pub struct VM {
     pub stack: Stack<Value>
@@ -53,14 +53,20 @@ impl VM {
 
     pub fn pop_operand_as_numbers(&mut self) -> Result<(f64, f64), InterpretResult> {
         if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
-            self.runtime_error("Operands must be numbers");
             return Err(InterpretResult::RuntimeError)
         }
         let b = *self.stack.pop().as_number().unwrap();
         let a = *self.stack.pop().as_number().unwrap();
         Ok((a, b))
     }
-
+    pub fn pop_operand_as_strings(&mut self) -> Result<(String, String), InterpretResult> {
+        if !self.stack.peek(0).is_string() || !self.stack.peek(1).is_string() {
+            return Err(InterpretResult::RuntimeError)
+        }
+        let b = self.stack.pop().as_string().unwrap().clone();
+        let a = self.stack.pop().as_string().unwrap().clone();
+        Ok((a, b))
+    }
     pub fn pop_operand_as_bool(&mut self) -> Result<bool, InterpretResult> {
         if !self.stack.peek(0).is_bool() {
             self.runtime_error("Operands must be boolean");
@@ -106,18 +112,47 @@ impl VM {
 
                 Opcode::OpAdd => {
 
+                    // let peek_b= self.stack.peek(0);
+                    // let peek_a= self.stack.peek(1);
+                    //
+                    // if peek_b.is_number() && peek_a.is_number() {
+                    //     let b = self.stack.pop().as_number().unwrap().clone();
+                    //     let a = self.stack.pop().as_number().unwrap().clone();
+                    //     self.stack.push( Value::Number(a + b))
+                    // }
+                    //
+                    // if peek_b.is_string() && peek_a.is_string() {
+                    //     let b = self.stack.pop().as_string().unwrap();
+                    //     let a = self.stack.pop().as_string().unwrap();
+                    //     self.stack.push( Value::Object(ObjectValue::String(format!("{}{}", a, b))))
+                    // }
+                    //
+
+
+
                     match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
                              self.stack.push( Value::Number(a + b))
                         }
-                        Err(result) => {
-                            return result
+                        _ => {
+
                         }
                     }
+
+                    match self.pop_operand_as_strings() {
+                        Ok((a,b)) => {
+                            self.stack.push( Value::Object(ObjectValue::String(format!("{}{}", a, b))))
+                        }
+                        _ => {
+
+                        }
+                    }
+
+                    self.runtime_error("Operands must be of same type");
+
+                    return InterpretResult::RuntimeError
+
                 }
-
-
-
 
                 Opcode::OPSubtract => {
                     match self.pop_operand_as_numbers() {
@@ -205,7 +240,7 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-    use crate::value::Value;
+    use crate::value::{ObjectValue, Value};
     use crate::vm::{InterpretResult, VM};
 
     fn assert_ok(vm: &mut VM, s:&str, expected_value: Value) {
@@ -319,5 +354,23 @@ mod tests {
     #[test]
     fn vm_equal_fail() {
         assert_ok(&mut VM::new(),"2 == 2", Value::Boolean(true));
+    }
+
+    #[test]
+    fn vm_str_eval() {
+        assert_ok(&mut VM::new(),r#""A""#, Value::Object(ObjectValue::String("A".to_string())));
+    }
+    #[test]
+    fn vm_add_str() {
+        assert_ok(&mut VM::new(),r#""A" + "b""#, Value::Object(ObjectValue::String("Ab".to_string())));
+    }
+
+    #[test]
+    fn vm_add_distinct_types() {
+        assert_runtime_error(&mut VM::new(),r#""A" + 3.1"#);
+    }
+    #[test]
+    fn vm_add_distinct_types_2() {
+        assert_runtime_error(&mut VM::new(),r#"3.1 +  "A" "#);
     }
 }
