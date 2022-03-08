@@ -9,7 +9,7 @@ pub struct VM {
     pub stack: Stack<Value>
 }
 pub enum InterpretResult {
-    Ok(Value),
+    Ok(Option<Value>),
     CompileError,
     RuntimeError
 }
@@ -90,9 +90,12 @@ impl VM {
                    // println!("const val {}", const_val);
                 }
                 Opcode::OpReturn => {
-                    let ret_val = self.stack.pop();
-                    VM::print_value(&ret_val);
-                    return InterpretResult::Ok(ret_val.borrow().clone())
+                    return if let Some(ret_val) = self.stack.safe_pop() {
+                        VM::print_value(&ret_val);
+                        InterpretResult::Ok(Some(ret_val.borrow().clone()))
+                    } else {
+                        InterpretResult::Ok(None)
+                    }
                 }
 
                 Opcode::OpNegate => {
@@ -132,25 +135,25 @@ impl VM {
 
                     match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
-                             self.stack.push( Value::Number(a + b))
+                            self.stack.push( Value::Number(a + b))
+
                         }
                         _ => {
-
+                            match self.pop_operand_as_strings() {
+                                Ok((a,b)) => {
+                                    self.stack.push( Value::Object(ObjectValue::String(format!("{}{}", a, b))))
+                                }
+                                _ => {
+                                    self.runtime_error("Operands must be of same type");
+                                    return InterpretResult::RuntimeError
+                                }
+                            }
                         }
                     }
 
-                    match self.pop_operand_as_strings() {
-                        Ok((a,b)) => {
-                            self.stack.push( Value::Object(ObjectValue::String(format!("{}{}", a, b))))
-                        }
-                        _ => {
 
-                        }
-                    }
 
-                    self.runtime_error("Operands must be of same type");
 
-                    return InterpretResult::RuntimeError
 
                 }
 
@@ -230,6 +233,13 @@ impl VM {
                     }
                 }
 
+                Opcode::OpPrint => {
+                    println!("{}", self.stack.pop());
+                }
+
+                Opcode::OpPop => {
+                    self.stack.pop();
+                }
             }
         }
         InterpretResult::RuntimeError
@@ -246,8 +256,14 @@ mod tests {
     fn assert_ok(vm: &mut VM, s:&str, expected_value: Value) {
         match vm.interpret(s) {
             InterpretResult::Ok(val) => {
-                println!("Ok {}", val);
-                assert_eq!(expected_value, val)
+                if let Some(r) = val {
+                    println!("Ok {}", r);
+                    assert_eq!(expected_value, r)
+                } else {
+                    println!("Ok(empty)");
+                }
+
+
             }
             InterpretResult::CompileError => {
                 panic!("CompileError")
@@ -261,7 +277,8 @@ mod tests {
     fn assert_runtime_error(vm: &mut VM, s:&str) {
         match vm.interpret(s) {
             InterpretResult::Ok(val) => {
-                panic!("Expected RuntimeError, found OK({})", val)
+
+                panic!("Expected RuntimeError, found OK({})", val.unwrap_or(Value::Object(ObjectValue::String("empty".to_string()))))
             }
             InterpretResult::CompileError => {
                 panic!("Expected RuntimeError, found CompileError")
@@ -275,102 +292,118 @@ mod tests {
 
     #[test]
     fn vm_multiply() {
-        assert_ok(&mut VM::new(), "1*2", Value::Number(2f64))
+        assert_ok(&mut VM::new(), "1*2;", Value::Number(2f64))
     }
     #[test]
     fn vm_add() {
-        assert_ok(&mut VM::new(), "1 + 2", Value::Number(3f64))
+        assert_ok(&mut VM::new(), "1 + 2;", Value::Number(3f64))
     }
     #[test]
     fn vm_unary() {
-        assert_ok(&mut VM::new(), "-1", Value::Number(-1f64));
+        assert_ok(&mut VM::new(), "-1;", Value::Number(-1f64));
     }
     #[test]
     fn vm_number() {
-        assert_ok(&mut VM::new(), "1", Value::Number(1f64));
+        assert_ok(&mut VM::new(), "1;", Value::Number(1f64));
     }
     #[test]
     fn vm_grouping() {
-        assert_ok(&mut VM::new(), "-(1)", Value::Number(-1f64));
+        assert_ok(&mut VM::new(), "-(1);", Value::Number(-1f64));
     }
     #[test]
     fn vm_minus() {
-        assert_ok(&mut VM::new(), " 2+5*10", Value::Number(52f64));
+        assert_ok(&mut VM::new(), " 2+5*10;", Value::Number(52f64));
     }
 
     #[test]
     fn vm_bool_t() {
-        assert_ok(&mut VM::new(),"true", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"true;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_bool_f() {
-        assert_ok(&mut VM::new(),"false", Value::Boolean(false));
+        assert_ok(&mut VM::new(),"false;", Value::Boolean(false));
     }
     #[test]
     fn vm_bool_not() {
-        assert_ok(&mut VM::new(),"!false", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"!false;", Value::Boolean(true));
     }
     #[test]
     fn vm_nil() {
-        assert_ok(&mut VM::new(),"nil", Value::Nil);
+        assert_ok(&mut VM::new(),"nil;", Value::Nil);
     }
 
     #[test]
     fn vm_not_nil() {
-        assert_runtime_error(&mut VM::new(),"!nil");
+        assert_runtime_error(&mut VM::new(),"!nil;");
     }
 
     #[test]
     fn vm_not_number() {
-        assert_runtime_error(&mut VM::new(),"!3.14");
+        assert_runtime_error(&mut VM::new(),"!3.14;");
     }
 
     #[test]
     fn vm_negate_bool() {
-        assert_runtime_error(&mut VM::new(),"-false");
+        assert_runtime_error(&mut VM::new(),"-false;");
     }
     #[test]
     fn vm_negate_nil() {
-        assert_runtime_error(&mut VM::new(),"-nil");
+        assert_runtime_error(&mut VM::new(),"-nil;");
     }
 
     #[test]
     fn vm_greater() {
-        assert_ok(&mut VM::new(),"2 > 1", Value::Boolean(true));
-        assert_ok(&mut VM::new(),"2 >= 1", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"2 > 1;", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"2 >= 1;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_less() {
-        assert_ok(&mut VM::new(),"2 < 1", Value::Boolean(false));
-        assert_ok(&mut VM::new(),"2 <= 1", Value::Boolean(false));
+        assert_ok(&mut VM::new(),"2 < 1;", Value::Boolean(false));
+        assert_ok(&mut VM::new(),"2 <= 1;", Value::Boolean(false));
     }
     #[test]
     fn vm_equal() {
-        assert_ok(&mut VM::new(),"2 == 2", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"2 == 2;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_equal_fail() {
-        assert_ok(&mut VM::new(),"2 == 2", Value::Boolean(true));
+        assert_ok(&mut VM::new(),"2 == 2;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_str_eval() {
-        assert_ok(&mut VM::new(),r#""A""#, Value::Object(ObjectValue::String("A".to_string())));
+        assert_ok(&mut VM::new(),r#""A";"#, Value::Object(ObjectValue::String("A".to_string())));
     }
+
+    #[test]
+    fn vm_str_compare() {
+        assert_ok(&mut VM::new(),r#""A" == "A";"#, Value::Boolean(true));
+        assert_ok(&mut VM::new(),r#""A" == "B";"#, Value::Boolean(false));
+    }
+
+
     #[test]
     fn vm_add_str() {
-        assert_ok(&mut VM::new(),r#""A" + "b""#, Value::Object(ObjectValue::String("Ab".to_string())));
+        assert_ok(&mut VM::new(),r#""A" + "b";"#, Value::Object(ObjectValue::String("Ab".to_string())));
     }
 
     #[test]
     fn vm_add_distinct_types() {
-        assert_runtime_error(&mut VM::new(),r#""A" + 3.1"#);
+        assert_runtime_error(&mut VM::new(),r#""A" + 3.1;"#);
     }
+
     #[test]
     fn vm_add_distinct_types_2() {
-        assert_runtime_error(&mut VM::new(),r#"3.1 +  "A" "#);
+        assert_runtime_error(&mut VM::new(),r#"3.1 +  "A" ;"#);
     }
+
+
+    #[test]
+    fn vm_print_expr() {
+        assert_ok(&mut VM::new(),"print 1 + 2;", Value::Object(ObjectValue::String("Ab".to_string())));
+    }
+
 }

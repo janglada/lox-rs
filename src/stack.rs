@@ -45,6 +45,11 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.pop().expect("Unable to pop from empty stack!")
     }
 
+    pub fn safe_pop(&mut self) -> Option<T> {
+        self.0.pop()
+    }
+
+
     /// Take a sneaky look at the top element on the stack.
     pub fn peek(&self, dist: usize) -> &T {
         let len = self.0.len();

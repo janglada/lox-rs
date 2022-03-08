@@ -20,5 +20,8 @@ pub enum Opcode {
 
     OpEqual,
     OpGreater,
-    OpLess
+    OpLess,
+
+    OpPrint,
+    OpPop
 }

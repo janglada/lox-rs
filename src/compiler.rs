@@ -105,13 +105,92 @@ impl<'a> Compiler<'a> {
         self.parser.result =Ok(());
         self.parser.panic_mode = false;
         self.advance();
-        self.expression();
-        self.consume(TokenType::EOF, "Expect end of expression");
+        // self.expression();
+        // self.consume(TokenType::EOF, "Expect end of expression");
+
+        while !self.match_token(TokenType::EOF){
+            self.declaration();
+        }
+
         self.end_compiler();
         self.parser.result.is_ok()
     }
 
+    ///
+    ///
+    ///
+    fn declaration(&mut self) {
+        self.statement();
+        if self.parser.panic_mode {
+            self.synchronize();
+        }
+    }
 
+    ///
+    ///
+    ///
+    fn statement(&mut self) {
+        if self.match_token(TokenType::Print) {
+            self.print_statement()
+        } else {
+           self.expression_statement()
+        }
+    }
+
+    ///
+    ///
+    ///
+    fn match_token(&mut self, token_type: TokenType) -> bool {
+        if !self.check(token_type) {
+            return false
+        }
+        self.advance();
+        true
+
+    }
+    ///
+    ///
+    ///
+    fn check(&mut self, token_type: TokenType) -> bool {
+        self.parser.current.token_type == token_type
+    }
+
+    ///
+    ///
+    ///
+    fn print_statement(&mut self)  {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value");
+        self.writer.emit_byte(Opcode::OpPrint,   self.parser.previous.line);
+    }
+
+    ///
+    ///
+    ///
+    fn expression_statement(&mut self)  {
+        self.expression();
+        self.consume(TokenType::SemiColon, "Expect ';' after value");
+        self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+    }
+
+
+    ///
+    ///
+    ///
+    fn synchronize(&mut self) {
+        self.parser.panic_mode = false;
+        if self.parser.previous.token_type == TokenType::SemiColon {
+            return;
+        }
+        match  self.parser.current.token_type {
+            TokenType::Class | TokenType::Fun | TokenType::Var |
+            TokenType::For | TokenType::If | TokenType::While |
+            TokenType::Print | TokenType::Return  => {
+                    return
+            }
+            _ => self.advance()
+        }
+    }
     ///
     ///
     ///

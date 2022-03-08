@@ -83,6 +83,8 @@ impl WritableChunk for Chunk {
             Opcode::OpEqual => self.simple_instruction("OP_EQUAL", offset),
             Opcode::OpGreater => self.simple_instruction("OP_GREATER", offset),
             Opcode::OpLess => self.simple_instruction("OP_LESS", offset),
+            Opcode::OpPrint => self.simple_instruction("OP_PRINT", offset),
+            Opcode::OpPop => self.simple_instruction("OP_POP", offset),
             _ => {
                 offset + 1
             }
