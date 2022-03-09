@@ -99,7 +99,7 @@ impl<'a> ParserRule<'a> {
     }
 }
 
-pub type ParseFn = fn(compiler: &mut Compiler);
+pub type ParseFn = fn(compiler: &mut Compiler, can_assign: bool);
 
 
 

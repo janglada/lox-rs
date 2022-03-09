@@ -247,6 +247,9 @@ impl VM {
                     let name = chunk.read_constant(*index).unwrap().as_string().ok().unwrap();
                     self.globals.insert(name.to_string(), self.stack.peek(0).borrow().clone());
                 }
+
+
+
                 Opcode::OpGetGlobal(index) => {
                     let name = chunk.read_constant(*index).unwrap().as_string().ok().unwrap();
                     match self.globals.get(name){
@@ -259,6 +262,20 @@ impl VM {
                         }
                     }
                 }
+                Opcode::OpSetGlobal(index) => {
+                    let name = chunk.read_constant(*index).unwrap().as_string().ok().unwrap();
+
+                    if !self.globals.contains_key(name) {
+                        self.runtime_error(format!("Undefined variable {}", name).as_str());
+                        return InterpretResult::RuntimeError;
+                    } else {
+                        let v = self.stack.peek(0).borrow().clone();
+                        self.globals.insert(name.to_string(), v);
+                    }
+
+
+                }
+
                 Opcode::OpPop => {
                     self.stack.pop();
                 }
@@ -431,8 +448,20 @@ mod tests {
     fn vm_global_get() {
         assert_ok(&mut VM::new(),r#"
         var beverage = "cafe au lait";
-        var breakfast = "beignets with" + beverage ;
+        var breakfast = "beignets with " + beverage ;
         print breakfast;
-        "#, Value::Object(ObjectValue::String("beignets withcafe au lait".to_string())));
+        "#, Value::Object(ObjectValue::String("beignets with cafe au lait".to_string())));
     }
+
+    #[test]
+    fn vm_global_set() {
+        assert_ok(&mut VM::new(),r#"
+var beverage  = "cafe au lait";
+var breakfast = "beignets";
+breakfast = breakfast + " with " +   beverage ;
+print breakfast;
+breakfast;
+        "#, Value::Object(ObjectValue::String("beignets with cafe au lait".to_string())));
+    }
+
 }

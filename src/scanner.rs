@@ -173,6 +173,7 @@ impl<'a> Scanner<'a> {
     ///
     fn make_token(&self, token_type: TokenType) -> Token {
         // dbg!("MAKE TOKEN {:?} {}...{}", token_type,  self.start, self.current);
+        //println!("TOKEN NAME {} {:?}", self.get_token_text(), token_type);
         Token::new(
             token_type,
             self.start,

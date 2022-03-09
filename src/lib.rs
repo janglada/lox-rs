@@ -3,10 +3,10 @@ extern crate core;
 
 mod token;
 // mod full_scanner;
-mod chunk;
+pub mod chunk;
 mod opcode;
-mod vm;
-mod compiler;
+pub mod vm;
+pub mod compiler;
 mod scanner;
 mod parser;
 mod precedence;

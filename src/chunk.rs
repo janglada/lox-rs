@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::opcode::Opcode;
 use crate::value::Value;
 
@@ -21,10 +22,10 @@ pub trait WritableChunk {
     fn write_chunk(&mut self, bytes: Opcode);
     fn add_constant(&mut self, value: Value) -> usize;
     fn read_constant(&self, index : usize) -> Option<&Value>;
-    fn disassemble_chunk(&mut self);
-    fn disassemble_instruction(&mut self, offset: usize) -> usize;
-    fn simple_instruction(&mut self, name: &str, offset: usize) -> usize;
-    fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize) -> usize;
+    fn disassemble_chunk(&mut self, writer: &mut dyn Write);
+    fn disassemble_instruction(&mut self, offset: usize, writer: &mut dyn Write) -> usize;
+    fn simple_instruction(&mut self, name: &str, offset: usize, writer: &mut dyn Write) -> usize;
+    fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize;
 
 }
 
@@ -43,72 +44,73 @@ impl WritableChunk for Chunk {
         self.constants.get(index)
     }
 
-    fn disassemble_chunk(&mut self) {
-
+    fn disassemble_chunk(&mut self, writer: &mut dyn Write) {
         let mut offset: usize = 0;
         while offset < self.op_codes.len() {
-            offset = self.disassemble_instruction(offset);
+            offset = self.disassemble_instruction(offset, writer);
         }
-
     }
 
-    fn disassemble_instruction(&mut self, offset: usize) -> usize {
-        print!("{:04} ", offset);
+    fn disassemble_instruction(&mut self, offset: usize, writer: &mut dyn Write) -> usize {
+        write!(writer, "{:04} ", offset);
         let opcode = self.op_codes.get(offset).unwrap();
         match opcode {
             Opcode::OpReturn => {
-                self.simple_instruction("OP_RETURN", offset)
+                self.simple_instruction("OP_RETURN", offset, writer)
             },
             Opcode::OpNegate => {
-                self.simple_instruction("OP_NEGATE", offset)
+                self.simple_instruction("OP_NEGATE", offset, writer)
             },
             Opcode::OpNot => {
-                self.simple_instruction("OP_NOT", offset)
+                self.simple_instruction("OP_NOT", offset, writer)
             },
             Opcode::OpConstant(size) => {
-                self.constant_instruction("OP_CONSTANT", offset, *size)
+                self.constant_instruction("OP_CONSTANT", offset, *size, writer)
             },
             Opcode::OpDefineGlobal(size) => {
-                self.constant_instruction("OP_DEFINE_GLOBAL", offset, *size)
+                self.constant_instruction("OP_DEFINE_GLOBAL", offset, *size, writer)
             },
             Opcode::OpGetGlobal(size) => {
-                self.constant_instruction("OP_GET_GLOBAL", offset, *size)
+                self.constant_instruction("OP_GET_GLOBAL", offset, *size, writer)
+            },
+            Opcode::OpSetGlobal(size) => {
+                self.constant_instruction("OP_SET_GLOBAL", offset, *size, writer)
             },
             Opcode::OpAdd => {
-                self.simple_instruction("OP_ADD", offset)
+                self.simple_instruction("OP_ADD", offset, writer)
             },
             Opcode::OPSubtract => {
-                self.simple_instruction("OP_SUBTRACT", offset)
+                self.simple_instruction("OP_SUBTRACT", offset, writer)
             },
             Opcode::OPMultiply => {
-                self.simple_instruction("OP_MULTIPLY", offset)
+                self.simple_instruction("OP_MULTIPLY", offset, writer)
             },
             Opcode::OpDivide => {
-                self.simple_instruction("OP_DIVIDE", offset)
+                self.simple_instruction("OP_DIVIDE", offset, writer)
             },
-            Opcode::OpFalse => self.simple_instruction("OP_FALSE", offset),
-            Opcode::OpNil=> self.simple_instruction("OP_NIL", offset),
-            Opcode::OpTrue => self.simple_instruction("OP_TRUE", offset),
+            Opcode::OpFalse => self.simple_instruction("OP_FALSE", offset, writer),
+            Opcode::OpNil=> self.simple_instruction("OP_NIL", offset, writer),
+            Opcode::OpTrue => self.simple_instruction("OP_TRUE", offset, writer),
 
-            Opcode::OpEqual => self.simple_instruction("OP_EQUAL", offset),
-            Opcode::OpGreater => self.simple_instruction("OP_GREATER", offset),
-            Opcode::OpLess => self.simple_instruction("OP_LESS", offset),
-            Opcode::OpPrint => self.simple_instruction("OP_PRINT", offset),
-            Opcode::OpPop => self.simple_instruction("OP_POP", offset),
+            Opcode::OpEqual => self.simple_instruction("OP_EQUAL", offset, writer),
+            Opcode::OpGreater => self.simple_instruction("OP_GREATER", offset, writer),
+            Opcode::OpLess => self.simple_instruction("OP_LESS", offset, writer),
+            Opcode::OpPrint => self.simple_instruction("OP_PRINT", offset, writer),
+            Opcode::OpPop => self.simple_instruction("OP_POP", offset, writer),
             _ => {
                 offset + 1
             }
         }
     }
 
-    fn simple_instruction(&mut self, name: &str, offset: usize) -> usize {
-        println!("{: <12}", name);
+    fn simple_instruction(&mut self, name: &str, offset: usize, writer: &mut dyn Write) -> usize {
+        write!(writer, "{: <12}\n", name);
         offset + 1
     }
 
-    fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize) -> usize {
+    fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize {
         let value = self.constants.get(const_idx).unwrap();
-        println!("{: <12} {} '{}'", name, const_idx, value);
+        write!(writer, "{: <12} {} '{}' \n", name, const_idx, value);
         offset + 1
     }
 }
@@ -116,6 +118,8 @@ impl WritableChunk for Chunk {
 
 #[cfg(test)]
 mod tests {
+    use std::io;
+    use std::io::Write;
     use crate::chunk::{Chunk, WritableChunk};
     use crate::opcode::Opcode;
     use crate::value::Value;
@@ -130,7 +134,7 @@ mod tests {
         chunk.write_chunk(Opcode::OpNegate);
         chunk.write_chunk(Opcode::OpReturn);
 
-       chunk.disassemble_chunk();
+       chunk.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
         let mut vm = VM::new();
         vm.run(&chunk);
@@ -158,7 +162,7 @@ mod tests {
 
 
 
-        chunk.disassemble_chunk();
+        chunk.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
         let mut vm = VM::new();
         vm.run(&chunk);

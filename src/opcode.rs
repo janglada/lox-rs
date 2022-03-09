@@ -3,6 +3,7 @@ pub enum Opcode {
     OpConstant(usize),
     OpDefineGlobal(usize),
     OpGetGlobal(usize),
+    OpSetGlobal(usize),
     OpNil,
     OpTrue,
     OpFalse,

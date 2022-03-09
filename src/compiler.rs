@@ -1,3 +1,9 @@
+use std::borrow::BorrowMut;
+use std::fs::File;
+use std::io;
+use std::io::Write;
+use std::ops::{Add, AddAssign, SubAssign};
+use std::path::Path;
 use num_traits::FromPrimitive;
 use crate::chunk::{Chunk, WritableChunk};
 use crate::opcode::Opcode;
@@ -11,7 +17,16 @@ use crate::value::{ObjectValue, Value};
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     parser: Parser<'a>,
-    writer: ChunkWriter<'a>
+    writer: ChunkWriter<'a>,
+    // scope
+    locals: Vec<Local>,
+    local_count: usize,
+    scope_depth:isize
+}
+#[derive(Debug,  Clone)]
+pub struct Local{
+    token: Token, // clone!!! noooo, just a ref..
+    depth: isize
 }
 
 
@@ -68,8 +83,9 @@ impl<'a>  ChunkWriter<'a> {
         self.chunk.add_constant(value)
     }
 
-    fn disassemble_chunk(&mut self) {
-        self.chunk.disassemble_chunk()
+    pub fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>) {
+
+        self.chunk.disassemble_chunk(writer)
     }
 }
 
@@ -77,9 +93,14 @@ impl<'a>  ChunkWriter<'a> {
 
 impl<'a> Compiler<'a> {
 
-    pub(crate) fn new(source:  &'a str, chunk: &'a mut Chunk) -> Self {
+    pub fn new(source:  &'a str, chunk: &'a mut Chunk) -> Self {
         Compiler {
-            scanner: Scanner::new(source), parser:Parser::new(), writer: ChunkWriter::new(chunk)
+            scanner: Scanner::new(source),
+            parser:Parser::new(),
+            writer: ChunkWriter::new(chunk),
+            locals: Vec::with_capacity(256),
+            local_count : 0 ,
+            scope_depth: 0
         }
     }
 
@@ -147,6 +168,12 @@ impl<'a> Compiler<'a> {
 
     fn parse_variable(&mut self, msg: &'a str) -> usize{
         self.consume(TokenType::Identifier("".to_string()), msg);
+
+        self.declare_variable();
+        if self.scope_depth > 0 {
+            return 0;
+        }
+
         self.identifier_constant()
 
     }
@@ -161,9 +188,72 @@ impl<'a> Compiler<'a> {
     }
 
     fn define_variable(&mut self, index: usize) {
+        if self.scope_depth > 0 {
+            return;
+        }
         self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
 
     }
+    fn declare_variable(&mut self) {
+        if self.scope_depth == 0 {
+            return;
+        }
+        let token = self.parser.previous.clone();
+        // it's an error to have two variables with the same name in the same local scope
+
+        self.locals.iter_mut().rev().take_while()
+        for l in self.locals.iter_mut().rev() {
+            if l.depth != -1 && l.depth < self.scope_depth {
+                break;
+            }
+
+            if Compiler::identifiers_equal(&token, &l.token) {
+                self.error("Already a variable with this name in this scope")
+            }
+        }
+
+
+        
+        self.add_local(Local {
+            token: token,
+            depth: self.scope_depth
+        });
+      //  self.parser.previous.
+      //  self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
+
+    }
+
+    fn identifiers_equal(token1: &Token, token2: &Token) -> bool {
+        if token1.len != token2.len {
+            false
+        } else {
+            match &token1.token_type {
+                TokenType::Identifier(name1) =>{
+                    match &token2.token_type {
+                        TokenType::Identifier(name2) =>{
+                            return name1 == name2
+                        }
+                        _ => return false
+                    }
+                }
+                _ => return false
+            }
+
+            false
+        }
+
+    }
+
+    fn add_local(&mut self, local: Local) {
+        if self.local_count == 256 {
+            self.error("Too many local variables in function");
+            return;
+        }
+        self.local_count.add_assign(1);
+        std::mem::replace(&mut self.locals[self.local_count], local);
+    }
+
+
 
     ///
     ///
@@ -171,10 +261,36 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_token(TokenType::Print) {
             self.print_statement()
+        } else if self.match_token(TokenType::LeftBrace) {
+           self.begin_scope();
+           self.block();
+           self.end_scope();
         } else {
            self.expression_statement()
         }
     }
+
+    fn begin_scope(&mut self) {
+        self.scope_depth.add_assign(1)
+    }
+
+    fn end_scope(&mut self) {
+        self.scope_depth.sub_assign(1);
+
+        while self.local_count > 0 && self.locals.get(self.local_count-1).unwrap().depth > self.scope_depth {
+            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+        }
+
+        self.local_count.sub_assign(1);
+    }
+
+    fn block(&mut self) {
+        while !self.check(TokenType::RightBrace) && !self.check(TokenType::EOF) {
+            self.declaration();
+        }
+        self.consume(TokenType::RightBrace, "Expect ')' after block");
+    }
+
 
     ///
     ///
@@ -247,7 +363,7 @@ impl<'a> Compiler<'a> {
     fn end_compiler(&mut self, ) {
         self.writer.emit_return(self.parser.previous.line);
         if let Ok(_res) =  self.parser.result {
-            self.writer.disassemble_chunk();
+            self.writer.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
         }
     }
 
@@ -263,10 +379,11 @@ impl<'a> Compiler<'a> {
         self.advance();
         let prefix_rule = ParserRule::get_rule(&self.parser.previous.token_type).prefix;
 
+        let can_assign = *precedence <= Precedence::Assigment;
         if prefix_rule.is_none() {
             self.error("Expect expression")
         } else {
-            prefix_rule.unwrap()(self);
+            prefix_rule.unwrap()(self, can_assign);
         }
 
         while precedence <= ParserRule::get_rule(&self.parser.current.token_type).precedence
@@ -274,8 +391,12 @@ impl<'a> Compiler<'a> {
             self.advance();
             let infix_rule = ParserRule::get_rule(&self.parser.previous.token_type).infix;
             if infix_rule.is_some() {
-                infix_rule.unwrap()(self);
+                infix_rule.unwrap()(self, can_assign);
             }
+        }
+
+        if can_assign && self.match_token(TokenType::Equal) {
+            self.error("Invalid assignment target")
         }
     }
 
@@ -315,7 +436,7 @@ impl<'a> Compiler<'a> {
 }
 
 
-pub fn number(compiler: &mut Compiler) {
+pub fn number(compiler: &mut Compiler, can_assign: bool) {
     match &compiler.parser.previous.token_type {
         TokenType::Number(num) => {
             compiler.writer.emit_constant(Value::Number(*num), compiler.parser.previous.line)
@@ -325,7 +446,7 @@ pub fn number(compiler: &mut Compiler) {
 }
 
 
-pub fn string(compiler: &mut Compiler) {
+pub fn string(compiler: &mut Compiler, can_assign: bool) {
     match &compiler.parser.previous.token_type {
         TokenType::String(str) => {
             dbg!(str);
@@ -334,18 +455,31 @@ pub fn string(compiler: &mut Compiler) {
         _ => panic!("unexpected token type")
     }
 }
-pub fn variable(compiler: &mut Compiler) {
-    named_variable(compiler);
+
+///
+///
+pub fn variable(compiler: &mut Compiler, can_assign: bool) {
+    named_variable(compiler, can_assign);
 }
 
-pub fn named_variable(compiler: &mut Compiler) {
+///
+///
+pub fn named_variable(compiler: &mut Compiler, can_assign: bool) {
     let index = compiler.identifier_constant();
-    compiler.writer.emit_byte(Opcode::OpGetGlobal(index), compiler.parser.previous.line)
+
+    if can_assign && compiler.match_token(TokenType::Equal) {
+        compiler.expression();
+        compiler.writer.emit_byte(Opcode::OpSetGlobal(index), compiler.parser.previous.line)
+    } else {
+        compiler.writer.emit_byte(Opcode::OpGetGlobal(index), compiler.parser.previous.line)
+    }
+
+
 }
 
 ///
 ///
-pub fn grouping(compiler: &mut Compiler) {
+pub fn grouping(compiler: &mut Compiler, can_assign: bool) {
     compiler.expression();
     compiler.consume(TokenType::RightParen, "Expected ')' after expression")
 }
@@ -353,7 +487,7 @@ pub fn grouping(compiler: &mut Compiler) {
 
 ///
 ///
-pub fn literal(compiler: &mut Compiler) {
+pub fn literal(compiler: &mut Compiler, can_assign: bool) {
     let token_type = &compiler.parser.previous.token_type.clone();
     match token_type {
        TokenType::False => compiler.writer.emit_byte(Opcode::OpFalse,  compiler.parser.previous.line),
@@ -365,7 +499,7 @@ pub fn literal(compiler: &mut Compiler) {
 
 ///
 ///
-pub fn unary(compiler: &mut Compiler) {
+pub fn unary(compiler: &mut Compiler, can_assign: bool) {
 
     let token_type = &compiler.parser.previous.token_type.clone();
     // compile the operand
@@ -380,7 +514,7 @@ pub fn unary(compiler: &mut Compiler) {
 }
 ///
 ///
-pub fn binary(compiler: &mut Compiler) {
+pub fn binary(compiler: &mut Compiler, can_assign: bool) {
     let token_type = &compiler.parser.previous.token_type.clone();
     // compile the operand
 
