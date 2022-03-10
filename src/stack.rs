@@ -49,6 +49,14 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.pop()
     }
 
+    /// Pop the top element off the stack and return it.
+    pub fn get(&mut self, idx: usize) -> &T {
+        self.0.get(idx).expect("Unable to get index from stack")
+    }
+    pub fn replace(&mut self, idx: usize, value: T)  {
+        std::mem::replace(&mut self.0[idx], value);
+    }
+
 
     /// Take a sneaky look at the top element on the stack.
     pub fn peek(&self, dist: usize) -> &T {

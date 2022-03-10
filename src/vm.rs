@@ -272,10 +272,16 @@ impl VM {
                         let v = self.stack.peek(0).borrow().clone();
                         self.globals.insert(name.to_string(), v);
                     }
-
-
                 }
 
+
+                Opcode::OpGetLocal(index) => {
+                    let v = self.stack.get(*index).borrow().clone();
+                    self.stack.push(v)
+                }
+                Opcode::OpSetLocal(index) => {
+                    self.stack.replace(*index, self.stack.peek(0).borrow().clone());
+                }
                 Opcode::OpPop => {
                     self.stack.pop();
                 }
@@ -290,6 +296,7 @@ impl VM {
 #[cfg(test)]
 mod tests {
     use crate::value::{ObjectValue, Value};
+    use crate::value::Value::Object;
     use crate::vm::{InterpretResult, VM};
 
     fn assert_ok(vm: &mut VM, s:&str, expected_value: Value) {
@@ -327,6 +334,24 @@ mod tests {
             }
         }
     }
+
+
+    fn assert_compile_error(vm: &mut VM, s:&str) {
+        match vm.interpret(s) {
+            InterpretResult::Ok(val) => {
+
+                panic!("Expected RuntimeError, found OK({})", val.unwrap_or(Value::Object(ObjectValue::String("empty".to_string()))))
+            }
+            InterpretResult::CompileError => {
+                println!("CompileError")
+
+            }
+            InterpretResult::RuntimeError => {
+                panic!("Expected CompileError found RuntimeError")
+            }
+        }
+    }
+
 
 
     #[test]
@@ -464,4 +489,39 @@ breakfast;
         "#, Value::Object(ObjectValue::String("beignets with cafe au lait".to_string())));
     }
 
+    #[test]
+    fn vm_local_set_duplicate() {
+        assert_compile_error(&mut VM::new(),r#"
+{
+    var a ="first";
+    var a = "second"
+}
+        "#);
+    }
+
+
+    #[test]
+    fn vm_local_set1() {
+        assert_ok(&mut VM::new(),r#"
+{
+    var a = "outer";
+    {
+        var a =  "inner";
+    }
+}
+        "#,Value::Nil);
+    }
+    #[test]
+    fn vm_local_set_2() {
+        assert_ok(&mut VM::new(),r#"
+{
+    var a = "outer";
+    {
+        var b =  "inner";
+        var c =  "hi " + b;
+        print c;
+    }
+}
+        "#,Value::Nil);
+    }
 }

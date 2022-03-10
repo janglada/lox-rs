@@ -1,9 +1,15 @@
 #[derive(Debug)]
 pub enum Opcode {
     OpConstant(usize),
+
     OpDefineGlobal(usize),
+
     OpGetGlobal(usize),
     OpSetGlobal(usize),
+
+    OpGetLocal(usize),
+    OpSetLocal(usize),
+
     OpNil,
     OpTrue,
     OpFalse,

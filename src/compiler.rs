@@ -13,6 +13,8 @@ use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::{ObjectValue, Value};
 
+
+
 #[derive(Debug)]
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
@@ -94,11 +96,13 @@ impl<'a>  ChunkWriter<'a> {
 impl<'a> Compiler<'a> {
 
     pub fn new(source:  &'a str, chunk: &'a mut Chunk) -> Self {
+
+        const INIT: Option<Local> = None;
         Compiler {
             scanner: Scanner::new(source),
             parser:Parser::new(),
             writer: ChunkWriter::new(chunk),
-            locals: Vec::with_capacity(256),
+            locals:Vec::with_capacity(256),
             local_count : 0 ,
             scope_depth: 0
         }
@@ -186,6 +190,12 @@ impl<'a> Compiler<'a> {
         }
 
     }
+    fn resolve_local(&mut self) -> Option<usize> {
+        let token = &self.parser.previous;
+        self.locals.iter_mut().enumerate().rev()
+
+            .find(|(i, l)| Compiler::identifiers_equal(&token, &l.token)).map(|a| a.0)
+    }
 
     fn define_variable(&mut self, index: usize) {
         if self.scope_depth > 0 {
@@ -201,7 +211,11 @@ impl<'a> Compiler<'a> {
         let token = self.parser.previous.clone();
         // it's an error to have two variables with the same name in the same local scope
 
-        self.locals.iter_mut().rev().take_while()
+        if let Some(_) =self.locals.iter_mut().rev().take_while(|l| !(l.depth != -1 && l.depth < self.scope_depth))
+            .find(|l| Compiler::identifiers_equal(&token, &l.token)) {
+            self.error("Already a variable with this name in this scope")
+        }
+        /*
         for l in self.locals.iter_mut().rev() {
             if l.depth != -1 && l.depth < self.scope_depth {
                 break;
@@ -211,6 +225,8 @@ impl<'a> Compiler<'a> {
                 self.error("Already a variable with this name in this scope")
             }
         }
+
+         */
 
 
         
@@ -250,7 +266,13 @@ impl<'a> Compiler<'a> {
             return;
         }
         self.local_count.add_assign(1);
-        std::mem::replace(&mut self.locals[self.local_count], local);
+
+
+        self.locals.push(local);
+
+        // self.locals[self.local_count] = local;
+
+        // std::mem::replace(&mut self.locals[self.local_count], local);
     }
 
 
@@ -279,9 +301,10 @@ impl<'a> Compiler<'a> {
 
         while self.local_count > 0 && self.locals.get(self.local_count-1).unwrap().depth > self.scope_depth {
             self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.local_count.sub_assign(1);
         }
 
-        self.local_count.sub_assign(1);
+
     }
 
     fn block(&mut self) {
@@ -303,6 +326,8 @@ impl<'a> Compiler<'a> {
         true
 
     }
+
+
     ///
     ///
     ///
@@ -467,15 +492,22 @@ pub fn variable(compiler: &mut Compiler, can_assign: bool) {
 pub fn named_variable(compiler: &mut Compiler, can_assign: bool) {
     let index = compiler.identifier_constant();
 
+    let (get_op, set_op) = if let Some(index) = compiler.resolve_local()  {
+        (Opcode::OpGetLocal(index), Opcode::OpSetLocal(index))
+    } else {
+        let index = compiler.identifier_constant();
+        (Opcode::OpGetGlobal(index), Opcode::OpSetGlobal(index))
+    };
+
     if can_assign && compiler.match_token(TokenType::Equal) {
         compiler.expression();
-        compiler.writer.emit_byte(Opcode::OpSetGlobal(index), compiler.parser.previous.line)
+        compiler.writer.emit_byte(set_op, compiler.parser.previous.line)
     } else {
-        compiler.writer.emit_byte(Opcode::OpGetGlobal(index), compiler.parser.previous.line)
+        compiler.writer.emit_byte(get_op, compiler.parser.previous.line)
     }
-
-
 }
+
+
 
 ///
 ///

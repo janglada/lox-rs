@@ -26,6 +26,7 @@ pub trait WritableChunk {
     fn disassemble_instruction(&mut self, offset: usize, writer: &mut dyn Write) -> usize;
     fn simple_instruction(&mut self, name: &str, offset: usize, writer: &mut dyn Write) -> usize;
     fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize;
+    fn byte_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize;
 
 }
 
@@ -76,6 +77,13 @@ impl WritableChunk for Chunk {
             Opcode::OpSetGlobal(size) => {
                 self.constant_instruction("OP_SET_GLOBAL", offset, *size, writer)
             },
+
+            Opcode::OpSetLocal(size) => {
+                self.byte_instruction("OP_GET_LOCAL", offset, *size, writer)
+            },
+            Opcode::OpGetLocal(size) => {
+                self.byte_instruction("OP_SET_LOCAL", offset, *size, writer)
+            },
             Opcode::OpAdd => {
                 self.simple_instruction("OP_ADD", offset, writer)
             },
@@ -112,6 +120,23 @@ impl WritableChunk for Chunk {
         let value = self.constants.get(const_idx).unwrap();
         write!(writer, "{: <12} {} '{}' \n", name, const_idx, value);
         offset + 1
+    }
+
+    fn byte_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize {
+        let op_code = self.op_codes.get(offset ).unwrap();
+        match op_code {
+            Opcode::OpGetLocal(idx) => {
+                write!(writer, "{: <12} {}  \n", name, idx);
+            }
+            Opcode::OpSetLocal(idx) => {
+                write!(writer, "{: <12} {}  \n", name, idx);
+            }
+            _ => {
+                panic!("INVALID")
+            }
+        }
+
+        offset + 2
     }
 }
 
