@@ -192,13 +192,35 @@ impl<'a> Compiler<'a> {
     }
     fn resolve_local(&mut self) -> Option<usize> {
         let token = &self.parser.previous;
-        self.locals.iter_mut().enumerate().rev()
+        let local = self.locals.iter().enumerate().rev()
+            .find(|(i, l)| Compiler::identifiers_equal(&token, &l.token));
 
-            .find(|(i, l)| Compiler::identifiers_equal(&token, &l.token)).map(|a| a.0)
+        // match local {
+        //     None => {
+        //         None
+        //     }
+        //     Some((idx, l)) => {
+        //         if l.depth == -1 {
+        //             self.error("Can't read local variable in its own initializer")
+        //         }
+        //         Some(idx)
+        //     }
+        // }
+        if let Some((i,l)) = local {
+            if l.depth == -1 {
+                self.error("Can't read local variable in its own initializer")
+            }
+            Some(i)
+        } else {
+            None
+        }
+
+       // local.map(|a| a.0)
     }
 
     fn define_variable(&mut self, index: usize) {
         if self.scope_depth > 0 {
+            self.mark_initialized();
             return;
         }
         self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
@@ -232,11 +254,15 @@ impl<'a> Compiler<'a> {
         
         self.add_local(Local {
             token: token,
-            depth: self.scope_depth
+            depth: -1,//self.scope_depth
         });
       //  self.parser.previous.
       //  self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
 
+    }
+
+    fn mark_initialized(&mut self) {
+        self.locals.get_mut(self.local_count-1).unwrap().depth = self.scope_depth;
     }
 
     fn identifiers_equal(token1: &Token, token2: &Token) -> bool {
