@@ -5,7 +5,7 @@ use std::io::Write;
 use std::ops::{Add, AddAssign, SubAssign};
 use std::path::Path;
 use num_traits::FromPrimitive;
-use crate::chunk::{Chunk, WritableChunk};
+use crate::chunk::{Chunk};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
@@ -86,7 +86,6 @@ impl<'a>  ChunkWriter<'a> {
     }
 
     pub fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>) {
-
         self.chunk.disassemble_chunk(writer)
     }
 }
@@ -309,6 +308,8 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_token(TokenType::Print) {
             self.print_statement()
+        } else if self.match_token(TokenType::If) {
+            self.if_statement()
         } else if self.match_token(TokenType::LeftBrace) {
            self.begin_scope();
            self.block();
@@ -370,6 +371,49 @@ impl<'a> Compiler<'a> {
         self.writer.emit_byte(Opcode::OpPrint,   self.parser.previous.line);
     }
 
+    ///
+    ///
+    ///
+    fn if_statement(&mut self)  {
+        self.consume(TokenType::LeftParen, "Expect '(' after if");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after if condition");
+
+
+        let offset =  self.emit_jump(Opcode::OpJumpIfFalse(0));
+        self.statement();
+        self.patch_jump(offset, &Opcode::OpJumpIfFalse(0));
+    }
+
+    ///
+    ///
+    ///
+    fn emit_jump(&mut self, opcode: Opcode) -> usize {
+        self.writer.emit_byte(opcode,    self.parser.previous.line);
+        self.writer.chunk.op_codes.len()
+    }
+
+    ///
+    ///
+    ///
+    fn patch_jump(&mut self, offset: usize, opcode: &Opcode)  {
+        let jump = self.writer.chunk.op_codes.len() - offset;
+        if jump > u16::MAX as usize{
+            self.error("Too much code to jump over");
+        }
+
+        let patched_opcode =  match opcode {
+            Opcode::OpJumpIfFalse(_) => {
+                Opcode::OpJumpIfFalse(jump as u16)
+            }
+            _ => {
+                panic!("Not a jumpable opcode")
+            }
+        };
+
+        self.writer.chunk.replace_opcode(offset-1, patched_opcode);
+
+    }
     ///
     ///
     ///

@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::iter::Map;
-use crate::chunk::{Chunk, WritableChunk};
+use crate::chunk::{Chunk};
 use crate::compiler::Compiler;
 use crate::opcode::Opcode;
 use crate::stack::Stack;
@@ -81,6 +81,14 @@ impl VM {
         Ok(b)
     }
 
+    fn is_falsey(v: &Value) -> bool{
+        match v {
+            Value::Nil => true,
+            Value::Boolean(b) => !b,
+            _ => false
+        }
+    }
+
 
     ///
     ///
@@ -121,24 +129,6 @@ impl VM {
 
                 Opcode::OpAdd => {
 
-                    // let peek_b= self.stack.peek(0);
-                    // let peek_a= self.stack.peek(1);
-                    //
-                    // if peek_b.is_number() && peek_a.is_number() {
-                    //     let b = self.stack.pop().as_number().unwrap().clone();
-                    //     let a = self.stack.pop().as_number().unwrap().clone();
-                    //     self.stack.push( Value::Number(a + b))
-                    // }
-                    //
-                    // if peek_b.is_string() && peek_a.is_string() {
-                    //     let b = self.stack.pop().as_string().unwrap();
-                    //     let a = self.stack.pop().as_string().unwrap();
-                    //     self.stack.push( Value::Object(ObjectValue::String(format!("{}{}", a, b))))
-                    // }
-                    //
-
-
-
                     match self.pop_operand_as_numbers() {
                         Ok((a,b)) => {
                             self.stack.push( Value::Number(a + b))
@@ -156,11 +146,6 @@ impl VM {
                             }
                         }
                     }
-
-
-
-
-
                 }
 
                 Opcode::OPSubtract => {
@@ -285,6 +270,14 @@ impl VM {
                 Opcode::OpPop => {
                     self.stack.pop();
                 }
+                Opcode::OpJumpIfFalse(jump) => {
+
+                    if VM::is_falsey(self.stack.peek(0)) {
+                        for i in 0..*jump {
+                            op_code_iter.next();
+                        }
+                    }
+                }
             }
         }
         InterpretResult::RuntimeError
@@ -299,7 +292,22 @@ mod tests {
     use crate::value::Value::Object;
     use crate::vm::{InterpretResult, VM};
 
-    fn assert_ok(vm: &mut VM, s:&str, expected_value: Value) {
+
+    fn assert_ok(vm: &mut VM, s:&str) {
+        match vm.interpret(s) {
+            InterpretResult::Ok(val) => {
+                println!("Ok {:?}", val);
+            }
+            InterpretResult::CompileError => {
+                panic!("CompileError")
+            }
+            InterpretResult::RuntimeError => {
+                panic!("RuntimeError")
+            }
+        }
+    }
+
+    fn assert_ok_value(vm: &mut VM, s:&str, expected_value: Value) {
         match vm.interpret(s) {
             InterpretResult::Ok(val) => {
                 if let Some(r) = val {
@@ -356,45 +364,45 @@ mod tests {
 
     #[test]
     fn vm_multiply() {
-        assert_ok(&mut VM::new(), "1*2;", Value::Number(2f64))
+        assert_ok_value(&mut VM::new(), "1*2;", Value::Number(2f64))
     }
     #[test]
     fn vm_add() {
-        assert_ok(&mut VM::new(), "1 + 2;", Value::Number(3f64))
+        assert_ok_value(&mut VM::new(), "1 + 2;", Value::Number(3f64))
     }
     #[test]
     fn vm_unary() {
-        assert_ok(&mut VM::new(), "-1;", Value::Number(-1f64));
+        assert_ok_value(&mut VM::new(), "-1;", Value::Number(-1f64));
     }
     #[test]
     fn vm_number() {
-        assert_ok(&mut VM::new(), "1;", Value::Number(1f64));
+        assert_ok_value(&mut VM::new(), "1;", Value::Number(1f64));
     }
     #[test]
     fn vm_grouping() {
-        assert_ok(&mut VM::new(), "-(1);", Value::Number(-1f64));
+        assert_ok_value(&mut VM::new(), "-(1);", Value::Number(-1f64));
     }
     #[test]
     fn vm_minus() {
-        assert_ok(&mut VM::new(), " 2+5*10;", Value::Number(52f64));
+        assert_ok_value(&mut VM::new(), " 2+5*10;", Value::Number(52f64));
     }
 
     #[test]
     fn vm_bool_t() {
-        assert_ok(&mut VM::new(),"true;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "true;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_bool_f() {
-        assert_ok(&mut VM::new(),"false;", Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), "false;", Value::Boolean(false));
     }
     #[test]
     fn vm_bool_not() {
-        assert_ok(&mut VM::new(),"!false;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "!false;", Value::Boolean(true));
     }
     #[test]
     fn vm_nil() {
-        assert_ok(&mut VM::new(),"nil;", Value::Nil);
+        assert_ok_value(&mut VM::new(), "nil;", Value::Nil);
     }
 
     #[test]
@@ -418,40 +426,40 @@ mod tests {
 
     #[test]
     fn vm_greater() {
-        assert_ok(&mut VM::new(),"2 > 1;", Value::Boolean(true));
-        assert_ok(&mut VM::new(),"2 >= 1;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "2 > 1;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "2 >= 1;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_less() {
-        assert_ok(&mut VM::new(),"2 < 1;", Value::Boolean(false));
-        assert_ok(&mut VM::new(),"2 <= 1;", Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), "2 < 1;", Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), "2 <= 1;", Value::Boolean(false));
     }
     #[test]
     fn vm_equal() {
-        assert_ok(&mut VM::new(),"2 == 2;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_equal_fail() {
-        assert_ok(&mut VM::new(),"2 == 2;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true));
     }
 
     #[test]
     fn vm_str_eval() {
-        assert_ok(&mut VM::new(),r#""A";"#, Value::Object(ObjectValue::String("A".to_string())));
+        assert_ok_value(&mut VM::new(), r#""A";"#, Value::Object(ObjectValue::String("A".to_string())));
     }
 
     #[test]
     fn vm_str_compare() {
-        assert_ok(&mut VM::new(),r#""A" == "A";"#, Value::Boolean(true));
-        assert_ok(&mut VM::new(),r#""A" == "B";"#, Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), r#""A" == "A";"#, Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), r#""A" == "B";"#, Value::Boolean(false));
     }
 
 
     #[test]
     fn vm_add_str() {
-        assert_ok(&mut VM::new(),r#""A" + "b";"#, Value::Object(ObjectValue::String("Ab".to_string())));
+        assert_ok_value(&mut VM::new(), r#""A" + "b";"#, Value::Object(ObjectValue::String("Ab".to_string())));
     }
 
     #[test]
@@ -467,11 +475,11 @@ mod tests {
 
     #[test]
     fn vm_print_expr() {
-        assert_ok(&mut VM::new(),"print 1 + 2;", Value::Object(ObjectValue::String("Ab".to_string())));
+        assert_ok_value(&mut VM::new(), "print 1 + 2;", Value::Object(ObjectValue::String("Ab".to_string())));
     }
     #[test]
     fn vm_global_get() {
-        assert_ok(&mut VM::new(),r#"
+        assert_ok_value(&mut VM::new(), r#"
         var beverage = "cafe au lait";
         var breakfast = "beignets with " + beverage ;
         print breakfast;
@@ -480,7 +488,7 @@ mod tests {
 
     #[test]
     fn vm_global_set() {
-        assert_ok(&mut VM::new(),r#"
+        assert_ok_value(&mut VM::new(), r#"
 var beverage  = "cafe au lait";
 var breakfast = "beignets";
 breakfast = breakfast + " with " +   beverage ;
@@ -502,18 +510,18 @@ breakfast;
 
     #[test]
     fn vm_local_set1() {
-        assert_ok(&mut VM::new(),r#"
+        assert_ok_value(&mut VM::new(), r#"
 {
     var a = "outer";
     {
         var a =  "inner";
     }
 }
-        "#,Value::Nil);
+        "#, Value::Nil);
     }
     #[test]
     fn vm_local_set_2() {
-        assert_ok(&mut VM::new(),r#"
+        assert_ok_value(&mut VM::new(), r#"
 {
     var a = "outer";
     {
@@ -522,6 +530,22 @@ breakfast;
         print c;
     }
 }
-        "#,Value::Nil);
+        "#, Value::Nil);
     }
+
+    #[test]
+    fn vm_if_stmt() {
+        assert_ok(&mut VM::new(), r#"
+print "1";
+if (false) {
+    print "2";
+}
+if (true) {
+    print "3";
+}
+print "4";
+        "#);
+    }
+
+
 }

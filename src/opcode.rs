@@ -10,6 +10,10 @@ pub enum Opcode {
     OpGetLocal(usize),
     OpSetLocal(usize),
 
+
+    OpJumpIfFalse(u16),
+
+
     OpNil,
     OpTrue,
     OpFalse,
