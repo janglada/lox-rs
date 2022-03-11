@@ -138,7 +138,7 @@ impl<'a> Scanner<'a> {
                 } else if Scanner::is_alpha(c)  {
                     self.identifier(c)
                 } else {
-                    panic!("Line: {} [{}] Unexpected character.", self.line, c);
+                    panic!("Line: {}  Unexpected character [{}]", self.line, c);
                 }
             }
         }

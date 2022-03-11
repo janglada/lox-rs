@@ -118,7 +118,9 @@ impl Chunk   {
             Opcode::OpJumpIfFalse(jump) => {
                 Chunk::jump_instruction("OP_JUMP_IF_FALSE", offset, 1, jump, writer)
             },
-
+            Opcode::OpJump(jump) => {
+                Chunk::jump_instruction("OP_JUMP", offset, 1, jump, writer)
+            },
             _ => {
                 offset + 1
             }

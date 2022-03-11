@@ -278,6 +278,18 @@ impl VM {
                         }
                     }
                 }
+                Opcode::OpJump(jump) => {
+                    for i in 0..*jump {
+                        op_code_iter.next();
+                    }
+                }
+
+                Opcode::OpLoop(offset) => {
+                    for i in 0..*jump {
+                        op_code_iter.next();
+                    }
+                }
+
             }
         }
         InterpretResult::RuntimeError
@@ -547,5 +559,40 @@ print "4";
         "#);
     }
 
+    #[test]
+    fn vm_if_else_stmt() {
+        assert_ok(&mut VM::new(), r#"
+print "1";
+if (false) {
+    print "2";
+} else {
+    print "3";
+}
+print "4";
+        "#);
+    }
+
+    #[test]
+    fn vm_logical_and() {
+        assert_ok(&mut VM::new(), r#"
+
+var a =  true;
+var b =  false;
+a and b;
+
+
+        "#);
+    }
+    #[test]
+    fn vm_logical_or() {
+        assert_ok(&mut VM::new(), r#"
+
+var a =  true;
+var b =  false;
+print a or b;
+
+
+        "#);
+    }
 
 }

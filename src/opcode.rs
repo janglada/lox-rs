@@ -12,6 +12,8 @@ pub enum Opcode {
 
 
     OpJumpIfFalse(u16),
+    OpJump(u16),
+    OpLoop(u16),
 
 
     OpNil,

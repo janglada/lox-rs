@@ -7,6 +7,7 @@ use std::path::Path;
 use num_traits::FromPrimitive;
 use crate::chunk::{Chunk};
 use crate::opcode::Opcode;
+use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
@@ -310,6 +311,8 @@ impl<'a> Compiler<'a> {
             self.print_statement()
         } else if self.match_token(TokenType::If) {
             self.if_statement()
+        } else if self.match_token(TokenType::While) {
+            self.while_statement()
         } else if self.match_token(TokenType::LeftBrace) {
            self.begin_scope();
            self.block();
@@ -380,9 +383,38 @@ impl<'a> Compiler<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after if condition");
 
 
-        let offset =  self.emit_jump(Opcode::OpJumpIfFalse(0));
+        let then_jump =  self.emit_jump(Opcode::OpJumpIfFalse(0));
+        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
         self.statement();
-        self.patch_jump(offset, &Opcode::OpJumpIfFalse(0));
+        let else_jump =  self.emit_jump(Opcode::OpJump(0));
+
+
+        self.patch_jump(then_jump, &Opcode::OpJumpIfFalse(0));
+        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+
+        if self.match_token(TokenType::Else) {
+            self.statement();
+        }
+        self.patch_jump(else_jump, &Opcode::OpJump(0));
+
+    }
+
+    fn while_statement(&mut self) {
+        let loop_start = self.writer.chunk.op_codes.len();
+        self.consume(TokenType::LeftParen, "Expect '(' after while");
+        self.expression();
+        self.consume(TokenType::RightParen, "Expect ')' after while condition");
+
+
+        let exit_jump =  self.emit_jump(Opcode::OpJumpIfFalse(0));
+        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+        self.statement();
+        self.emmit_loop(loop_start);
+
+        self.patch_jump(exit_jump, &Opcode::OpJumpIfFalse(0));
+        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+
+
     }
 
     ///
@@ -392,7 +424,16 @@ impl<'a> Compiler<'a> {
         self.writer.emit_byte(opcode,    self.parser.previous.line);
         self.writer.chunk.op_codes.len()
     }
+    fn emit_loop(&mut self, loop_start: usize)  {
+        self.writer.emit_byte(Opcode::OpLoop(0), self.parser.previous.line);
+        let len = self.writer.chunk.op_codes.len();
+        let offset = len - loop_start;
+        if jump > u16::MAX as usize{
+            self.error("Loop body too large");
+        }
+        self.writer.chunk.replace_opcode(len-1, Opcode::OpLoop(offset as u16));
 
+    }
     ///
     ///
     ///
@@ -405,6 +446,9 @@ impl<'a> Compiler<'a> {
         let patched_opcode =  match opcode {
             Opcode::OpJumpIfFalse(_) => {
                 Opcode::OpJumpIfFalse(jump as u16)
+            }
+            Opcode::OpJump(_) => {
+                Opcode::OpJump(jump as u16)
             }
             _ => {
                 panic!("Not a jumpable opcode")
@@ -644,4 +688,25 @@ pub fn binary(compiler: &mut Compiler, can_assign: bool) {
     }
 }
 
+///
+///
+pub fn and(compiler: &mut Compiler, can_assign: bool) {
+    let end_jump = compiler.emit_jump(OpJumpIfFalse(0));
+    compiler.writer.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
+    compiler.parse_precedence(&Precedence::And);
+    compiler.patch_jump(end_jump, &Opcode::OpJumpIfFalse(0))
+}
 
+///
+///
+pub fn or(compiler: &mut Compiler, can_assign: bool) {
+    let else_jump = compiler.emit_jump(OpJumpIfFalse(0));
+    let end_jump = compiler.emit_jump(Opcode::OpJump(0));
+
+    compiler.patch_jump(else_jump, &Opcode::OpJumpIfFalse(0));
+
+    compiler.writer.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
+    compiler.parse_precedence(&Precedence::Or);
+    compiler.patch_jump(end_jump, &Opcode::OpJump(0));
+
+}
