@@ -17,6 +17,34 @@ impl Chunk {
         }
     }
 }
+
+pub struct ChunkOpCodeReader<'s> {
+    op_codes: &'s[Opcode],
+    ip: usize
+}
+
+impl<'s> ChunkOpCodeReader<'s> {
+    pub fn new(op_codes: &'s[Opcode]) -> Self {
+        Self { op_codes, ip: 0 }
+    }
+    pub fn prev(&mut self) {
+        self.ip -= 1;
+    }
+}
+impl<'s> Iterator for ChunkOpCodeReader<'s> {
+    type Item = &'s Opcode;
+    fn next(&mut self) -> Option<Self::Item> {
+        let ip = self.ip;
+        if ip < self.op_codes.len() {
+            self.ip += 1;
+            self.op_codes.get(ip)
+        } else {
+            None
+        }
+    }
+}
+
+
 /*
 pub trait WritableChunk {
     fn write_chunk(&mut self, bytes: Opcode);
@@ -120,6 +148,9 @@ impl Chunk   {
             },
             Opcode::OpJump(jump) => {
                 Chunk::jump_instruction("OP_JUMP", offset, 1, jump, writer)
+            },
+            Opcode::OpLoop(jump) => {
+                Chunk::jump_instruction("OP_LOOP", offset, -1, jump, writer)
             },
             _ => {
                 offset + 1

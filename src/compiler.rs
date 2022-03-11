@@ -409,7 +409,7 @@ impl<'a> Compiler<'a> {
         let exit_jump =  self.emit_jump(Opcode::OpJumpIfFalse(0));
         self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
         self.statement();
-        self.emmit_loop(loop_start);
+        self.emit_loop(loop_start);
 
         self.patch_jump(exit_jump, &Opcode::OpJumpIfFalse(0));
         self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
@@ -428,7 +428,7 @@ impl<'a> Compiler<'a> {
         self.writer.emit_byte(Opcode::OpLoop(0), self.parser.previous.line);
         let len = self.writer.chunk.op_codes.len();
         let offset = len - loop_start;
-        if jump > u16::MAX as usize{
+        if offset > u16::MAX as usize{
             self.error("Loop body too large");
         }
         self.writer.chunk.replace_opcode(len-1, Opcode::OpLoop(offset as u16));

@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::iter::Map;
-use crate::chunk::{Chunk};
+use crate::chunk::{Chunk, ChunkOpCodeReader};
 use crate::compiler::Compiler;
 use crate::opcode::Opcode;
 use crate::stack::Stack;
@@ -94,7 +94,8 @@ impl VM {
     ///
     pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
         // for c in &chunk.op_codes
-        let mut op_code_iter = chunk.op_codes.iter();
+        let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+        // let mut op_code_iter = chunk.op_codes.iter();
         while let Some(c) = op_code_iter.next()
         {
             match c {
@@ -285,8 +286,8 @@ impl VM {
                 }
 
                 Opcode::OpLoop(offset) => {
-                    for i in 0..*jump {
-                        op_code_iter.next();
+                    for i in 0..*offset {
+                        op_code_iter.prev();
                     }
                 }
 
@@ -595,4 +596,14 @@ print a or b;
         "#);
     }
 
+    #[test]
+    fn vm_while() {
+        assert_ok(&mut VM::new(), r#"
+var a = 0;
+while(a < 3) {
+    print a;
+    a =  a + 1;
+}
+        "#);
+    }
 }
