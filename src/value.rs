@@ -7,6 +7,12 @@ pub enum ObjectValue {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ObjectFunction {
+    String(String)
+}
+
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Boolean(bool),
     Nil,

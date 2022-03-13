@@ -62,7 +62,7 @@ fn compile_file(path: &String, write: &mut Box<dyn Write>)  {
             if !compiler.compile() {
                 //return InterpretResult::CompileError;
             } else {
-
+                chunk.to_bytes()
                 chunk.disassemble_chunk(write);
                 file.flush();
 

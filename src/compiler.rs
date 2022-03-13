@@ -309,6 +309,8 @@ impl<'a> Compiler<'a> {
     fn statement(&mut self) {
         if self.match_token(TokenType::Print) {
             self.print_statement()
+        } else if self.match_token(TokenType::For) {
+            self.for_statement()
         } else if self.match_token(TokenType::If) {
             self.if_statement()
         } else if self.match_token(TokenType::While) {
@@ -414,9 +416,54 @@ impl<'a> Compiler<'a> {
         self.patch_jump(exit_jump, &Opcode::OpJumpIfFalse(0));
         self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
 
-
     }
 
+    ///
+    ///
+    ///
+    fn for_statement(&mut self)  {
+        self.begin_scope();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'");
+        if self.match_token(TokenType::SemiColon) {
+            // no initializer
+        } else if self.match_token(TokenType::Var) {
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+        let mut loop_start = self.writer.chunk.op_codes.len();
+        //condition clause
+        let mut exit_jump: Option<usize> = None;
+        if !self.match_token(TokenType::SemiColon) {
+            self.expression();
+            self.consume(TokenType::SemiColon, "Expect ';' after loop condition");
+            exit_jump = Some(self.emit_jump(Opcode::OpJumpIfFalse(0)));
+            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+        }
+
+
+        // self.consume(TokenType::RightParen, "Expect ')' after 'for' clauses");
+
+        // increment clause
+        if !self.match_token(TokenType::RightParen) {
+            let body_jump = self.emit_jump(Opcode::OpJump(0));
+            let incr_start = self.writer.chunk.op_codes.len();
+            self.expression();
+            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.consume(TokenType::RightParen, "Expect ')' after 'for' clauses");
+
+            self.emit_loop(loop_start);
+            loop_start = incr_start;
+            self.patch_jump(body_jump, &Opcode::OpJump(0))
+        }
+        self.statement();
+        self.emit_loop(loop_start);
+        if let Some(jump) = exit_jump {
+            self.patch_jump(jump, &Opcode::OpJumpIfFalse(0));
+            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+        }
+        self.end_scope();
+    }
     ///
     ///
     ///

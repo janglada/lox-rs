@@ -606,4 +606,17 @@ while(a < 3) {
 }
         "#);
     }
+
+    #[test]
+    fn vm_for() {
+        assert_ok(&mut VM::new(), r#"
+
+for (var i = 0; i < 10; i = i + 2) {
+
+print i;
+
+}
+        "#);
+    }
+
 }
