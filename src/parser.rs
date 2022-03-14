@@ -158,13 +158,13 @@ impl<'a> Parser<'a> {
         let token = self.previous.clone();
         // it's an error to have two variables with the same name in the same local scope
 
-        if let Some(_) = self
+        if self
             .compiler
             .locals
             .iter_mut()
             .rev()
             .take_while(|l| !(l.depth != -1 && l.depth < self.compiler.scope_depth))
-            .find(|l| Parser::identifiers_equal(&token, &l.token))
+            .find(|l| Parser::identifiers_equal(&token, &l.token)).is_some()
         {
             self.error("Already a variable with this name in this scope")
         }
@@ -424,7 +424,7 @@ impl<'a> Parser<'a> {
             | TokenType::If
             | TokenType::While
             | TokenType::Print
-            | TokenType::Return => return,
+            | TokenType::Return => (),
             _ => self.advance(),
         }
     }
@@ -492,7 +492,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn add_local(&mut self, token: Token) {
-        let result = self.compiler.add_local(
+        let _result = self.compiler.add_local(
             Local {
                 token,
                 depth: -1, //self.scope_depth

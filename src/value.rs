@@ -1,6 +1,6 @@
 
 use std::fmt::{Display, Formatter};
-use crate::chunk::Chunk;
+
 use crate::function::ObjectFunction;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,7 +57,7 @@ impl Value {
 
             Value::Object(s) => {
                 match s {
-                    ObjectValue::String(str) => {
+                    ObjectValue::String(_str) => {
                         true
                     },
                     _ => false,

@@ -137,7 +137,7 @@ mod tests {
         println!(" {:?} {}", Precedence::Call, Precedence::Call as u8);
         println!(" {:?} {}", Precedence::None, Precedence::None as u8);
         assert!((Precedence::Primary ) > (Precedence::Call ));
-        assert!(!((Precedence::None ) > (Precedence::Call )));
+        assert!((Precedence::None ) <= (Precedence::Call ));
     }
 
 

@@ -1,14 +1,14 @@
 use crate::chunk::{Chunk, ChunkOpCodeReader};
-use crate::compiler::Compiler;
-use crate::function::FunctionType;
+
+
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::fmt::{write, Display, Formatter};
-use std::iter::Map;
+
+
 
 pub struct VM {
     pub stack: Stack<Value>,
@@ -237,19 +237,19 @@ impl VM {
                 }
                 Opcode::OpJumpIfFalse(jump) => {
                     if VM::is_falsey(self.stack.peek(0)) {
-                        for i in 0..*jump {
+                        for _i in 0..*jump {
                             op_code_iter.next();
                         }
                     }
                 }
                 Opcode::OpJump(jump) => {
-                    for i in 0..*jump {
+                    for _i in 0..*jump {
                         op_code_iter.next();
                     }
                 }
 
                 Opcode::OpLoop(offset) => {
-                    for i in 0..*offset {
+                    for _i in 0..*offset {
                         op_code_iter.prev();
                     }
                 }
@@ -261,7 +261,7 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-    use crate::value::Value::Object;
+    
     use crate::value::{ObjectValue, Value};
     use crate::vm::{InterpretResult, VM};
 

@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Read;
-use std::mem::transmute;
-use crate::opcode::Opcode::OpConstant;
+
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Opcode {
@@ -108,7 +108,7 @@ impl Into<Vec<u8>> for &Opcode {
 
 fn usize_from_bytes(bytes: &[u8]) -> usize{
     let mut dst = [0u8; 8];
-    dst.clone_from_slice(&bytes);
+    dst.clone_from_slice(bytes);
     usize::from_le_bytes(dst)
 }
 fn usize_from_reader(reader:   &mut File) -> usize{

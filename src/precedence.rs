@@ -1,4 +1,4 @@
-use crate::compiler::Compiler;
+
 use crate::compiler::{and, binary, grouping, literal, number, or, string, unary, variable};
 use crate::parser::Parser;
 use crate::token::TokenType;
@@ -114,7 +114,7 @@ mod tests {
         println!(" {:?} {}", Precedence::Call, Precedence::Call as u8);
         println!(" {:?} {}", Precedence::None, Precedence::None as u8);
         assert!((Precedence::Primary) > (Precedence::Call));
-        assert!(!((Precedence::None) > (Precedence::Call)));
+        assert!((Precedence::None) <= (Precedence::Call));
     }
 
     #[test]

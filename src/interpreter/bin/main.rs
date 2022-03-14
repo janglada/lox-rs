@@ -1,7 +1,7 @@
 use clap::{arg, command, Command};
 
 fn main() {
-    let matches = command!()
+    let _matches = command!()
         .arg(
             arg!([file] " name to operate on")
                 .required(true)

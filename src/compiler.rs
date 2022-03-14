@@ -1,22 +1,22 @@
-use crate::chunk::{Chunk, ChunkWriterTrait};
+use crate::chunk::{ChunkWriterTrait};
 use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
-use crate::scanner::Scanner;
-use crate::token::{Token, TokenType};
-use crate::value::{ObjectValue, Value};
 
-use lazy_static::lazy_static;
+use crate::token::{Token, TokenType};
+use crate::value::{Value};
+
+
 use num_traits::FromPrimitive;
-use std::borrow::BorrowMut;
-use std::fs::File;
-use std::io;
-use std::io::Write;
-use std::ops::{Add, AddAssign, SubAssign};
-use std::path::Path;
-use std::sync::Mutex;
+
+
+
+
+use std::ops::{AddAssign};
+
+
 
 #[derive(Debug)]
 pub struct Compiler {
@@ -74,7 +74,7 @@ impl Compiler {
             .iter()
             .enumerate()
             .rev()
-            .find(|(i, l)| Parser::identifiers_equal(&token, &l.token));
+            .find(|(_i, l)| Parser::identifiers_equal(token, &l.token));
 
         if let Some((i, l)) = local {
             if l.depth == -1 {
@@ -89,7 +89,7 @@ impl Compiler {
     }
 }
 
-pub fn number(parser: &mut Parser, can_assign: bool) {
+pub fn number(parser: &mut Parser, _can_assign: bool) {
     match &parser.previous.token_type {
         TokenType::Number(num) => parser
             .compiler
@@ -99,7 +99,7 @@ pub fn number(parser: &mut Parser, can_assign: bool) {
     }
 }
 
-pub fn string(parser: &mut Parser, can_assign: bool) {
+pub fn string(parser: &mut Parser, _can_assign: bool) {
     match &parser.previous.token_type {
         TokenType::String(str) => {
             dbg!(str);
@@ -121,7 +121,7 @@ pub fn variable(parser: &mut Parser, can_assign: bool) {
 ///
 ///
 pub fn named_variable(parser: &mut Parser, can_assign: bool) {
-    let index = parser.identifier_constant();
+    let _index = parser.identifier_constant();
 
     let (get_op, set_op) = if let Some(index) = parser.resolve_local() {
         (Opcode::OpGetLocal(index), Opcode::OpSetLocal(index))
@@ -146,14 +146,14 @@ pub fn named_variable(parser: &mut Parser, can_assign: bool) {
 
 ///
 ///
-pub fn grouping(compiler: &mut Parser, can_assign: bool) {
+pub fn grouping(compiler: &mut Parser, _can_assign: bool) {
     compiler.expression();
     compiler.consume(TokenType::RightParen, "Expected ')' after expression")
 }
 
 ///
 ///
-pub fn literal(parser: &mut Parser, can_assign: bool) {
+pub fn literal(parser: &mut Parser, _can_assign: bool) {
     let token_type = &parser.previous.token_type.clone();
     match token_type {
         TokenType::False => parser
@@ -174,7 +174,7 @@ pub fn literal(parser: &mut Parser, can_assign: bool) {
 
 ///
 ///
-pub fn unary(parser: &mut Parser, can_assign: bool) {
+pub fn unary(parser: &mut Parser, _can_assign: bool) {
     let token_type = &parser.previous.token_type.clone();
     // compile the operand
     parser.parse_precedence(&Precedence::Unary);
@@ -194,7 +194,7 @@ pub fn unary(parser: &mut Parser, can_assign: bool) {
 }
 ///
 ///
-pub fn binary(parser: &mut Parser, can_assign: bool) {
+pub fn binary(parser: &mut Parser, _can_assign: bool) {
     let token_type = &parser.previous.token_type.clone();
     // compile the operand
 
@@ -257,7 +257,7 @@ pub fn binary(parser: &mut Parser, can_assign: bool) {
 
 ///
 ///
-pub fn and(parser: &mut Parser, can_assign: bool) {
+pub fn and(parser: &mut Parser, _can_assign: bool) {
     let end_jump = parser.emit_jump(OpJumpIfFalse(0));
     parser
         .compiler
@@ -269,7 +269,7 @@ pub fn and(parser: &mut Parser, can_assign: bool) {
 
 ///
 ///
-pub fn or(parser: &mut Parser, can_assign: bool) {
+pub fn or(parser: &mut Parser, _can_assign: bool) {
     let else_jump = parser.emit_jump(OpJumpIfFalse(0));
     let end_jump = parser.emit_jump(Opcode::OpJump(0));
 

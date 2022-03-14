@@ -80,7 +80,7 @@ impl Chunk {
         self.op_codes.iter().for_each(|opcode|  {
             let v: Vec<u8> =  opcode.into();
             let s = v.as_slice();
-            let n = file.write(s);
+            let _n = file.write(s);
         });
         Ok(())
     }
@@ -132,7 +132,7 @@ impl Chunk {
             constants.push(value);
 
 
-            constant_pool_len = constant_pool_len -  1;
+            constant_pool_len -= 1;
         }
 
 
@@ -141,8 +141,8 @@ impl Chunk {
             op_codes.push(opcode);
         }
         Chunk {
-            op_codes: op_codes,
-            constants: constants
+            op_codes,
+            constants
         }
     }
 
@@ -320,24 +320,24 @@ impl Chunk   {
     }
 
     fn simple_instruction(name: &str, offset: usize, writer: &mut dyn Write) -> usize {
-        write!(writer, "{: <12}\n", name);
+        writeln!(writer, "{: <12}", name);
         offset + 1
     }
 
     fn constant_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize {
         let value = self.constants.get(const_idx).unwrap();
-        write!(writer, "{: <12} {} '{}' \n", name, const_idx, value);
+        writeln!(writer, "{: <12} {} '{}' ", name, const_idx, value);
         offset + 1
     }
 
-    fn byte_instruction(&mut self, name: &str, offset: usize, const_idx: usize, writer: &mut dyn Write) -> usize {
+    fn byte_instruction(&mut self, name: &str, offset: usize, _const_idx: usize, writer: &mut dyn Write) -> usize {
         let op_code = self.op_codes.get(offset ).unwrap();
         match op_code {
             Opcode::OpGetLocal(idx) => {
-                write!(writer, "{: <12} {}  \n", name, idx);
+                writeln!(writer, "{: <12} {}  ", name, idx);
             }
             Opcode::OpSetLocal(idx) => {
-                write!(writer, "{: <12} {}  \n", name, idx);
+                writeln!(writer, "{: <12} {}  ", name, idx);
             }
             _ => {
                 panic!("INVALID")
@@ -348,7 +348,7 @@ impl Chunk   {
     }
 
     fn jump_instruction(name: &str, offset: usize, sign: isize, jump:&u16, writer: &mut dyn Write) -> usize {
-        write!(writer, "{: <12} {} -> {}\n", name, offset, offset as i32  +1 + sign as i32 * (*jump as i32));
+        writeln!(writer, "{: <12} {} -> {}", name, offset, offset as i32  +1 + sign as i32 * (*jump as i32));
         offset + 1
     }
 }
@@ -358,7 +358,7 @@ impl Chunk   {
 mod tests {
     use std::fs::File;
     use std::io;
-    use std::io::{Read, Write};
+    use std::io::{Write};
     use crate::chunk::{Chunk};
     use crate::opcode::Opcode;
     use crate::value::{ObjectValue, Value};
@@ -415,9 +415,9 @@ mod tests {
         // chunk.write_chunk(Opcode::OpDivide);
         // chunk.write_chunk(Opcode::OpNegate);
         chunk.write_chunk(Opcode::OpJump(99));
-        let mut idx;
+        
 
-        idx =  chunk.add_constant(Value::Boolean(true));
+        let mut idx =  chunk.add_constant(Value::Boolean(true));
         chunk.write_chunk(Opcode::OpConstant(idx));
         //
         idx =  chunk.add_constant(Value::Number(1.2));
@@ -439,10 +439,10 @@ mod tests {
         // let mut buff = [0u8;1];
         // file1.read(&mut buff);
         // file1.read_to_end(&mut v);
-        let chunk1 = Chunk::from_bytes(&mut file1);
+        let _chunk1 = Chunk::from_bytes(&mut file1);
 
 
-        let a = 2;
+        let _a = 2;
     }
 
 }
