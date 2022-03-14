@@ -3,7 +3,7 @@ use std::io::Read;
 use std::mem::transmute;
 use crate::opcode::Opcode::OpConstant;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Opcode {
     OpConstant(usize),
 

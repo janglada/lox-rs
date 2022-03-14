@@ -4,8 +4,11 @@ use std::io;
 use std::io::Write;
 use std::ops::{Add, AddAssign, SubAssign};
 use std::path::Path;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
-use crate::chunk::{Chunk};
+use crate::chunk::{Chunk, ChunkWriterTrait};
+use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
@@ -13,6 +16,11 @@ use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::{ObjectValue, Value};
+use crate::vm::CurrentCompiler;
+
+
+
+
 
 
 
@@ -20,7 +28,9 @@ use crate::value::{ObjectValue, Value};
 pub struct Compiler<'a> {
     scanner: Scanner<'a>,
     parser: Parser<'a>,
-    writer: ChunkWriter<'a>,
+    enclosing: Option<* mut Compiler<'a>>,
+    // current_compilers: &'a mut CurrentCompiler<'a>,
+    function: ObjectFunction,
     // scope
     locals: Vec<Local>,
     local_count: usize,
@@ -35,77 +45,36 @@ pub struct Local{
 
 
 ///
-///
-#[derive(Debug)]
-pub struct ChunkWriter<'a> {
-    chunk: &'a mut Chunk
-}
-
-
-
-impl<'a>  ChunkWriter<'a> {
-
-    fn new(chunk : &'a mut Chunk) ->  Self {
-        ChunkWriter {
-            chunk
-        }
-    }
-
-    ///
-    ///
-    fn emit_byte(&mut self, byte: Opcode, line: isize) {
-        self.write_chunk( byte, line);
-    }
-
-
-    ///
-    ///
-    fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode, line: isize) {
-        self.emit_byte(byte1, line);
-        self.emit_byte(byte2, line);
-    }
-
-    ///
-    ///
-    fn emit_return(&mut self, line: isize) {
-        self.emit_byte(Opcode::OpReturn, line)
-    }
-    ///
-    ///
-    fn emit_constant(&mut self, value: Value, line: isize) {
-        let idx = self.make_constant(value);
-        self.emit_byte(Opcode::OpConstant(idx), line)
-    }
-
-
-    fn write_chunk(&mut self, byte: Opcode, _line: isize) {
-        self.chunk.write_chunk(byte);
-    }
-
-    fn make_constant(&mut self, value: Value) -> usize {
-        self.chunk.add_constant(value)
-    }
-
-    pub fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>) {
-        self.chunk.disassemble_chunk(writer)
-    }
-}
-
 
 
 impl<'a> Compiler<'a> {
 
-    pub fn new(source:  &'a str, chunk: &'a mut Chunk) -> Self {
+    pub fn new(source:  &'a str, chunk: &'a mut Chunk, ftype: FunctionType, mut current_cmp: CurrentCompiler<'a> ) -> Self {
 
         const INIT: Option<Local> = None;
-        Compiler {
+
+        let enclosing = if let  Some(enclosing) = current_cmp.current.last() {
+            Some(enclosing)
+        } else {
+            None
+        };
+
+        let mut cmp = Compiler{
             scanner: Scanner::new(source),
+            enclosing: current_cmp.current.last().map(|c| *c),
+            current_compilers: &mut current_cmp,
             parser:Parser::new(),
-            writer: ChunkWriter::new(chunk),
+            function: ObjectFunction::new(ftype, "".to_string()),
             locals:Vec::with_capacity(256),
             local_count : 0 ,
-            scope_depth: 0
-        }
+            scope_depth: 0,
+
+        };
+
+        cmp.current_compilers.current.push(&mut cmp);
+
+
+        cmp
     }
 
     fn advance(&mut self) {
@@ -161,7 +130,7 @@ impl<'a> Compiler<'a> {
         if self.match_token(TokenType::Equal) {
             self.expression()
         } else {
-            self.writer.emit_byte(Opcode::OpNil,   self.parser.previous.line);
+            self.function.emit_byte(Opcode::OpNil, self.parser.previous.line);
         }
 
         self.consume(TokenType::SemiColon, "Expect ';' after value");
@@ -184,7 +153,7 @@ impl<'a> Compiler<'a> {
     fn identifier_constant(&mut self) -> usize{
         match &self.parser.previous.token_type {
             TokenType::Identifier(name) => {
-                self.writer.make_constant(Value::Object(ObjectValue::String(name.to_string())))
+                self.function.make_constant(Value::Object(ObjectValue::String(name.to_string())))
             }
             _ => panic!("should not happen")
         }
@@ -223,7 +192,7 @@ impl<'a> Compiler<'a> {
             self.mark_initialized();
             return;
         }
-        self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.parser.previous.line)
+        self.function.emit_byte(Opcode::OpDefineGlobal(index), self.parser.previous.line)
 
     }
     fn declare_variable(&mut self) {
@@ -251,7 +220,7 @@ impl<'a> Compiler<'a> {
          */
 
 
-        
+
         self.add_local(Local {
             token: token,
             depth: -1,//self.scope_depth
@@ -332,7 +301,7 @@ impl<'a> Compiler<'a> {
         self.scope_depth.sub_assign(1);
 
         while self.local_count > 0 && self.locals.get(self.local_count-1).unwrap().depth > self.scope_depth {
-            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
             self.local_count.sub_assign(1);
         }
 
@@ -373,7 +342,7 @@ impl<'a> Compiler<'a> {
     fn print_statement(&mut self)  {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value");
-        self.writer.emit_byte(Opcode::OpPrint,   self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPrint, self.parser.previous.line);
     }
 
     ///
@@ -386,13 +355,13 @@ impl<'a> Compiler<'a> {
 
 
         let then_jump =  self.emit_jump(Opcode::OpJumpIfFalse(0));
-        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
         self.statement();
         let else_jump =  self.emit_jump(Opcode::OpJump(0));
 
 
         self.patch_jump(then_jump, &Opcode::OpJumpIfFalse(0));
-        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
 
         if self.match_token(TokenType::Else) {
             self.statement();
@@ -402,19 +371,19 @@ impl<'a> Compiler<'a> {
     }
 
     fn while_statement(&mut self) {
-        let loop_start = self.writer.chunk.op_codes.len();
+        let loop_start = self.function.len();
         self.consume(TokenType::LeftParen, "Expect '(' after while");
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after while condition");
 
 
         let exit_jump =  self.emit_jump(Opcode::OpJumpIfFalse(0));
-        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
         self.statement();
         self.emit_loop(loop_start);
 
         self.patch_jump(exit_jump, &Opcode::OpJumpIfFalse(0));
-        self.writer.emit_byte(Opcode::OpPop, self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
 
     }
 
@@ -431,14 +400,14 @@ impl<'a> Compiler<'a> {
         } else {
             self.expression_statement();
         }
-        let mut loop_start = self.writer.chunk.op_codes.len();
+        let mut loop_start = self.function.len();
         //condition clause
         let mut exit_jump: Option<usize> = None;
         if !self.match_token(TokenType::SemiColon) {
             self.expression();
             self.consume(TokenType::SemiColon, "Expect ';' after loop condition");
             exit_jump = Some(self.emit_jump(Opcode::OpJumpIfFalse(0)));
-            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
         }
 
 
@@ -447,9 +416,9 @@ impl<'a> Compiler<'a> {
         // increment clause
         if !self.match_token(TokenType::RightParen) {
             let body_jump = self.emit_jump(Opcode::OpJump(0));
-            let incr_start = self.writer.chunk.op_codes.len();
+            let incr_start = self.function.len();
             self.expression();
-            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
             self.consume(TokenType::RightParen, "Expect ')' after 'for' clauses");
 
             self.emit_loop(loop_start);
@@ -460,7 +429,7 @@ impl<'a> Compiler<'a> {
         self.emit_loop(loop_start);
         if let Some(jump) = exit_jump {
             self.patch_jump(jump, &Opcode::OpJumpIfFalse(0));
-            self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+            self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
         }
         self.end_scope();
     }
@@ -468,24 +437,24 @@ impl<'a> Compiler<'a> {
     ///
     ///
     fn emit_jump(&mut self, opcode: Opcode) -> usize {
-        self.writer.emit_byte(opcode,    self.parser.previous.line);
-        self.writer.chunk.op_codes.len()
+        self.function.emit_byte(opcode, self.parser.previous.line);
+        self.function.len()
     }
     fn emit_loop(&mut self, loop_start: usize)  {
-        self.writer.emit_byte(Opcode::OpLoop(0), self.parser.previous.line);
-        let len = self.writer.chunk.op_codes.len();
+        self.function.emit_byte(Opcode::OpLoop(0), self.parser.previous.line);
+        let len = self.function.len();
         let offset = len - loop_start;
         if offset > u16::MAX as usize{
             self.error("Loop body too large");
         }
-        self.writer.chunk.replace_opcode(len-1, Opcode::OpLoop(offset as u16));
+        self.function.replace_opcode(len-1, Opcode::OpLoop(offset as u16));
 
     }
     ///
     ///
     ///
     fn patch_jump(&mut self, offset: usize, opcode: &Opcode)  {
-        let jump = self.writer.chunk.op_codes.len() - offset;
+        let jump = self.function.len() - offset;
         if jump > u16::MAX as usize{
             self.error("Too much code to jump over");
         }
@@ -502,7 +471,7 @@ impl<'a> Compiler<'a> {
             }
         };
 
-        self.writer.chunk.replace_opcode(offset-1, patched_opcode);
+        self.function.replace_opcode(offset-1, patched_opcode);
 
     }
     ///
@@ -511,7 +480,7 @@ impl<'a> Compiler<'a> {
     fn expression_statement(&mut self)  {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value");
-        self.writer.emit_byte(Opcode::OpPop,   self.parser.previous.line);
+        self.function.emit_byte(Opcode::OpPop, self.parser.previous.line);
     }
 
 
@@ -547,9 +516,13 @@ impl<'a> Compiler<'a> {
     ///
     ///
     fn end_compiler(&mut self, ) {
-        self.writer.emit_return(self.parser.previous.line);
+        self.function.emit_return(self.parser.previous.line);
+
+
+
+
         if let Ok(_res) =  self.parser.result {
-            self.writer.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+            self.function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
         }
     }
 
@@ -625,7 +598,7 @@ impl<'a> Compiler<'a> {
 pub fn number(compiler: &mut Compiler, can_assign: bool) {
     match &compiler.parser.previous.token_type {
         TokenType::Number(num) => {
-            compiler.writer.emit_constant(Value::Number(*num), compiler.parser.previous.line)
+            compiler.function.emit_constant(Value::Number(*num), compiler.parser.previous.line)
         }
         _ => panic!("unexpected token type")
     }
@@ -636,7 +609,7 @@ pub fn string(compiler: &mut Compiler, can_assign: bool) {
     match &compiler.parser.previous.token_type {
         TokenType::String(str) => {
             dbg!(str);
-            compiler.writer.emit_constant(Value::new_string(str), compiler.parser.previous.line)
+            compiler.function.emit_constant(Value::new_string(str), compiler.parser.previous.line)
         }
         _ => panic!("unexpected token type")
     }
@@ -662,9 +635,9 @@ pub fn named_variable(compiler: &mut Compiler, can_assign: bool) {
 
     if can_assign && compiler.match_token(TokenType::Equal) {
         compiler.expression();
-        compiler.writer.emit_byte(set_op, compiler.parser.previous.line)
+        compiler.function.emit_byte(set_op, compiler.parser.previous.line)
     } else {
-        compiler.writer.emit_byte(get_op, compiler.parser.previous.line)
+        compiler.function.emit_byte(get_op, compiler.parser.previous.line)
     }
 }
 
@@ -683,9 +656,9 @@ pub fn grouping(compiler: &mut Compiler, can_assign: bool) {
 pub fn literal(compiler: &mut Compiler, can_assign: bool) {
     let token_type = &compiler.parser.previous.token_type.clone();
     match token_type {
-       TokenType::False => compiler.writer.emit_byte(Opcode::OpFalse,  compiler.parser.previous.line),
-       TokenType::Nil => compiler.writer.emit_byte(Opcode::OpNil,  compiler.parser.previous.line),
-       TokenType::True => compiler.writer.emit_byte(Opcode::OpTrue,  compiler.parser.previous.line),
+       TokenType::False => compiler.function.emit_byte(Opcode::OpFalse, compiler.parser.previous.line),
+       TokenType::Nil => compiler.function.emit_byte(Opcode::OpNil, compiler.parser.previous.line),
+       TokenType::True => compiler.function.emit_byte(Opcode::OpTrue, compiler.parser.previous.line),
         _ => {}
     }
 }
@@ -700,8 +673,8 @@ pub fn unary(compiler: &mut Compiler, can_assign: bool) {
 
     // Emit the operator instruction
     match token_type {
-        TokenType::Bang => compiler.writer.emit_byte(Opcode::OpNot, compiler.parser.previous.line),
-        TokenType::Minus => compiler.writer.emit_byte(Opcode::OpNegate, compiler.parser.previous.line),
+        TokenType::Bang => compiler.function.emit_byte(Opcode::OpNot, compiler.parser.previous.line),
+        TokenType::Minus => compiler.function.emit_byte(Opcode::OpNegate, compiler.parser.previous.line),
         _ => {}
     }
 }
@@ -720,17 +693,17 @@ pub fn binary(compiler: &mut Compiler, can_assign: bool) {
 
     // Emit the operator instruction
     match token_type {
-        TokenType::Plus => compiler.writer.emit_byte(Opcode::OpAdd, compiler.parser.previous.line),
-        TokenType::Minus => compiler.writer.emit_byte(Opcode::OPSubtract, compiler.parser.previous.line),
-        TokenType::Star => compiler.writer.emit_byte(Opcode::OPMultiply, compiler.parser.previous.line),
-        TokenType::Slash => compiler.writer.emit_byte(Opcode::OpDivide, compiler.parser.previous.line),
+        TokenType::Plus => compiler.function.emit_byte(Opcode::OpAdd, compiler.parser.previous.line),
+        TokenType::Minus => compiler.function.emit_byte(Opcode::OPSubtract, compiler.parser.previous.line),
+        TokenType::Star => compiler.function.emit_byte(Opcode::OPMultiply, compiler.parser.previous.line),
+        TokenType::Slash => compiler.function.emit_byte(Opcode::OpDivide, compiler.parser.previous.line),
 
-        TokenType::BangEqual => compiler.writer.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
-        TokenType::EqualEqual => compiler.writer.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
-        TokenType::Greater => compiler.writer.emit_byte(Opcode::OpGreater, compiler.parser.previous.line),
-        TokenType::GreaterEqual => compiler.writer.emit_bytes(Opcode::OpLess, Opcode::OpNot, compiler.parser.previous.line),
-        TokenType::Less => compiler.writer.emit_byte(Opcode::OpLess, compiler.parser.previous.line),
-        TokenType::LessEqual => compiler.writer.emit_bytes(Opcode::OpGreater, Opcode::OpNot, compiler.parser.previous.line),
+        TokenType::BangEqual => compiler.function.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
+        TokenType::EqualEqual => compiler.function.emit_byte(Opcode::OpEqual, compiler.parser.previous.line),
+        TokenType::Greater => compiler.function.emit_byte(Opcode::OpGreater, compiler.parser.previous.line),
+        TokenType::GreaterEqual => compiler.function.emit_bytes(Opcode::OpLess, Opcode::OpNot, compiler.parser.previous.line),
+        TokenType::Less => compiler.function.emit_byte(Opcode::OpLess, compiler.parser.previous.line),
+        TokenType::LessEqual => compiler.function.emit_bytes(Opcode::OpGreater, Opcode::OpNot, compiler.parser.previous.line),
         _ => {}
     }
 }
@@ -739,7 +712,7 @@ pub fn binary(compiler: &mut Compiler, can_assign: bool) {
 ///
 pub fn and(compiler: &mut Compiler, can_assign: bool) {
     let end_jump = compiler.emit_jump(OpJumpIfFalse(0));
-    compiler.writer.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
+    compiler.function.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
     compiler.parse_precedence(&Precedence::And);
     compiler.patch_jump(end_jump, &Opcode::OpJumpIfFalse(0))
 }
@@ -752,7 +725,7 @@ pub fn or(compiler: &mut Compiler, can_assign: bool) {
 
     compiler.patch_jump(else_jump, &Opcode::OpJumpIfFalse(0));
 
-    compiler.writer.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
+    compiler.function.emit_byte(Opcode::OpPop, compiler.parser.previous.line);
     compiler.parse_precedence(&Precedence::Or);
     compiler.patch_jump(end_jump, &Opcode::OpJump(0));
 

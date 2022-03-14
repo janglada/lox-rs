@@ -4,11 +4,12 @@ use crate::opcode::Opcode;
 use crate::value::{ObjectValue, Value};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chunk {
     pub op_codes: Vec<Opcode>,
     pub constants: Vec<Value>
 }
+
 
 impl Chunk {
     pub fn new() -> Chunk {
@@ -61,7 +62,11 @@ impl Chunk {
                         let str_bytes = s.as_bytes();
                         file.write(&Chunk::size_to_bytes(str_bytes.len()));
                         file.write(str_bytes);
-                    } }
+                    }
+                        ObjectValue::Function(_) => {
+                            todo!("serialize funtcion to bytes");
+                        }
+                    }
                 }
             }
 
@@ -142,6 +147,29 @@ impl Chunk {
     }
 
 }
+
+
+pub trait ChunkWriterTrait {
+    ///
+    ///
+    fn emit_byte(&mut self, byte: Opcode, line: isize);
+    ///
+    ///
+    fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode, line: isize);
+    ///
+    ///
+    fn emit_return(&mut self, line: isize);
+    ///
+    ///
+    fn emit_constant(&mut self, value: Value, line: isize);
+    fn write_chunk(&mut self, byte: Opcode, _line: isize);
+    fn make_constant(&mut self, value: Value) -> usize;
+    fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>);
+    fn len(&self) -> usize;
+    fn replace_opcode(&mut self, index: usize, bytes: Opcode);
+}
+
+
 
 pub struct ChunkOpCodeReader<'s> {
     op_codes: &'s[Opcode],

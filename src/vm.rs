@@ -1,8 +1,10 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter, write};
 use std::iter::Map;
 use crate::chunk::{Chunk, ChunkOpCodeReader};
 use crate::compiler::Compiler;
+use crate::function::FunctionType;
 use crate::opcode::Opcode;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
@@ -15,6 +17,16 @@ pub enum InterpretResult {
     Ok(Option<Value>),
     CompileError,
     RuntimeError
+}
+#[derive(Debug)]
+pub struct CurrentCompiler<'a> {
+    pub current: Vec<* mut Compiler<'a>>
+}
+
+impl<'a> Display for CurrentCompiler<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Currently have {} compilers", self.current.len())
+    }
 }
 
 
@@ -32,8 +44,11 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) -> InterpretResult {
+        let mut current_compiler = CurrentCompiler {
+            current: Vec::new()
+        };
         let mut chunk = Chunk::new();
-        let mut compiler = Compiler::new(source, &mut chunk);
+        let mut compiler = Compiler::new(source, &mut chunk, FunctionType::Script, current_compiler);
         if !compiler.compile() {
             return InterpretResult::CompileError;
         }

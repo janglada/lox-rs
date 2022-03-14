@@ -12,3 +12,4 @@ mod parser;
 mod precedence;
 mod value;
 mod stack;
+mod function;

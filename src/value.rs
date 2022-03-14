@@ -1,15 +1,20 @@
 
 use std::fmt::{Display, Formatter};
+use crate::chunk::Chunk;
+use crate::function::ObjectFunction;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ObjectValue {
-    String(String)
+    String(String),
+    Function(ObjectFunction)
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ObjectFunction {
-    String(String)
-}
+
+
+
+
+
+
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,6 +67,23 @@ impl Value {
         }
     }
 
+
+    pub fn is_function(&self) -> bool {
+        match self {
+
+            Value::Object(s) => {
+                match s {
+                    ObjectValue::Function(_) => {
+                        true
+                    },
+                    _ => false,
+                }
+            },
+            _ => false,
+        }
+    }
+
+
     pub fn as_number(&self) -> Result<&f64, &str> {
         match self {
             Value::Number(c) => {
@@ -96,7 +118,20 @@ impl Value {
             _ => Err("Must be a obj string"),
         }
     }
+    pub fn as_function(&self) -> Result<&ObjectFunction, &str> {
+        match self {
 
+            Value::Object(s) => {
+                match s {
+                    ObjectValue::Function(objFn) => {
+                        Ok(objFn)
+                    },
+                    _ => Err("Must be a string"),
+                }
+            },
+            _ => Err("Must be a obj string"),
+        }
+    }
 
 }
 
@@ -117,6 +152,9 @@ impl Display for Value {
                 match obj {
                     ObjectValue::String(s) => {
                         write!(f, "{}", s)
+                    }
+                    ObjectValue::Function(obj) => {
+                        write!(f, "<fn {}>", obj.name)
                     }
                 }
 
