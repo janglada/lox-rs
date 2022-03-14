@@ -1,46 +1,44 @@
-use std::io::Write;
 use crate::chunk::{Chunk, ChunkWriterTrait};
 use crate::opcode::Opcode;
 use crate::value::Value;
+use std::io::Write;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum  FunctionType {
+pub enum FunctionType {
     Function,
-    Script
+    Script,
 }
 
 #[derive(Debug, Clone)]
 pub struct ObjectFunction {
     ftype: FunctionType,
-    chunk: Chunk,
-    arity:u8,
-    pub name: String
+    pub(crate) chunk: Chunk,
+    arity: u8,
+    pub name: String,
 }
 
 impl ObjectFunction {
-    pub fn new(ftype: FunctionType, name: String) -> Self{
+    pub fn new(ftype: FunctionType, name: String) -> Self {
         ObjectFunction {
             name,
             ftype,
             chunk: Chunk::new(),
-            arity: 0
+            arity: 0,
         }
     }
 }
 
-impl PartialEq  for ObjectFunction{
+impl PartialEq for ObjectFunction {
     fn eq(&self, other: &Self) -> bool {
         self.arity == other.arity && self.name == other.name && self.ftype == other.ftype
     }
 }
 
-
 impl ChunkWriterTrait for ObjectFunction {
-
     ///
     ///
     fn emit_byte(&mut self, byte: Opcode, line: isize) {
-        self.write_chunk( byte, line);
+        self.write_chunk(byte, line);
     }
     ///
     ///
@@ -73,7 +71,7 @@ impl ChunkWriterTrait for ObjectFunction {
         self.chunk.op_codes.len()
     }
 
-   fn replace_opcode(&mut self, index: usize, bytes: Opcode) {
-       self.chunk.replace_opcode(index, bytes);
-   }
+    fn replace_opcode(&mut self, index: usize, bytes: Opcode) {
+        self.chunk.replace_opcode(index, bytes);
+    }
 }

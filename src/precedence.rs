@@ -1,11 +1,11 @@
-
-
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
+use crate::compiler::Compiler;
+use crate::compiler::{and, binary, grouping, literal, number, or, string, unary, variable};
+use crate::parser::Parser;
+use crate::token::TokenType;
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
-use crate::token::TokenType;
-use crate::compiler::{binary, Compiler, grouping, unary, number, string, literal, variable, and, or};
+use std::collections::HashMap;
+use std::fmt::{Debug, Formatter};
 lazy_static! {
 
     static ref PARSER_RULES: HashMap<TokenType, ParserRule<'static>> = {
@@ -57,8 +57,7 @@ lazy_static! {
     };
 }
 
-
-#[derive(Debug,PartialOrd, Ord, PartialEq, Eq, Hash, FromPrimitive, Clone, Copy)]
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash, FromPrimitive, Clone, Copy)]
 pub enum Precedence {
     None,
     Assigment,
@@ -70,14 +69,13 @@ pub enum Precedence {
     Factor,
     Unary,
     Call,
-    Primary
+    Primary,
 }
 
-pub struct  ParserRule<'a> {
+pub struct ParserRule<'a> {
     pub(crate) prefix: Option<ParseFn>,
     pub(crate) infix: Option<ParseFn>,
     pub(crate) precedence: &'a Precedence,
-
 }
 
 impl<'a> Debug for ParserRule<'a> {
@@ -86,11 +84,12 @@ impl<'a> Debug for ParserRule<'a> {
     }
 }
 
-
 impl<'a> ParserRule<'a> {
-    fn new(prefix: Option<ParseFn>, infix: Option<ParseFn>,  precedence: &'a Precedence) ->Self {
+    fn new(prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: &'a Precedence) -> Self {
         ParserRule {
-            prefix, infix, precedence
+            prefix,
+            infix,
+            precedence,
         }
     }
 
@@ -99,72 +98,47 @@ impl<'a> ParserRule<'a> {
     }
 }
 
-pub type ParseFn = fn(compiler: &mut Compiler, can_assign: bool);
-
-
-
+pub type ParseFn = fn(compiler: &mut Parser, can_assign: bool);
 
 #[cfg(test)]
 mod tests {
-    use num_traits::FromPrimitive;
-    use crate::precedence::{PARSER_RULES, Precedence};
+    use crate::precedence::{Precedence, PARSER_RULES};
     use crate::token::TokenType;
+    use num_traits::FromPrimitive;
 
     #[test]
     fn test_prec() {
+        let _t: TokenType = TokenType::And;
 
-
-        let _t : TokenType = TokenType::And;
-        
-
-
-            println!(" {:?} {}", Precedence::Primary, Precedence::Primary as u8);
+        println!(" {:?} {}", Precedence::Primary, Precedence::Primary as u8);
         println!(" {:?} {}", Precedence::Call, Precedence::Call as u8);
         println!(" {:?} {}", Precedence::None, Precedence::None as u8);
-        assert!((Precedence::Primary ) > (Precedence::Call ));
-        assert!(!((Precedence::None ) > (Precedence::Call )));
+        assert!((Precedence::Primary) > (Precedence::Call));
+        assert!(!((Precedence::None) > (Precedence::Call)));
     }
 
     #[test]
     fn test_next() {
-
-
-
-        let precedence:Precedence = FromPrimitive::from_u8(Precedence::Or as u8 + 1).unwrap();
+        let precedence: Precedence = FromPrimitive::from_u8(Precedence::Or as u8 + 1).unwrap();
 
         match precedence {
-            Precedence::And => {
-
-            }
-            _ => panic!("   ")
+            Precedence::And => {}
+            _ => panic!("   "),
         }
-
     }
 
     #[test]
     fn test_map() {
-
-
-
-        match  &PARSER_RULES.get(&TokenType::And).unwrap() {
-            &_rule => {
-
-            }
+        match &PARSER_RULES.get(&TokenType::And).unwrap() {
+            &_rule => {}
         }
 
-        match  &PARSER_RULES.get(&TokenType::Number(0.)).unwrap() {
-            &_rule => {
-
-            }
+        match &PARSER_RULES.get(&TokenType::Number(0.)).unwrap() {
+            &_rule => {}
         }
 
-        match  &PARSER_RULES.get(&TokenType::Number(1.)).unwrap() {
-            &_rule => {
-
-            }
+        match &PARSER_RULES.get(&TokenType::Number(1.)).unwrap() {
+            &_rule => {}
         }
-
-
     }
-
-    }
+}
