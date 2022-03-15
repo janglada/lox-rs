@@ -1,16 +1,23 @@
 use crate::chunk::{Chunk, ChunkOpCodeReader};
 
-
+use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
+use std::mem::MaybeUninit;
 
-
+pub struct CallFrame {
+    function: *mut ObjectFunction,
+    ip: u8,
+    value_stack_pos: u8,
+}
 
 pub struct VM {
+    pub frames: [MaybeUninit<CallFrame>; 64],
+    pub frame_count: u8,
     pub stack: Stack<Value>,
     pub globals: HashMap<String, Value>,
 }
@@ -23,6 +30,8 @@ pub enum InterpretResult {
 impl VM {
     pub fn new() -> Self {
         VM {
+            frames: unsafe { MaybeUninit::uninit().assume_init() },
+            frame_count: 0,
             stack: Stack::with_capacity(256),
             globals: HashMap::new(),
         }
@@ -34,11 +43,21 @@ impl VM {
 
     pub fn interpret(&mut self, source: &str) -> InterpretResult {
         let mut parser = Parser::new(source);
-        if !parser.compile() {
-            return InterpretResult::CompileError;
-        }
+        let result = match parser.compile() {
+            Ok(obj_func) => {
+                // let handle_ptr: *mut ObjectFunction = ;
 
-        self.run(&parser.compiler.function.chunk)
+                self.frames[self.frame_count as usize].write(CallFrame {
+                    function: &mut **obj_func,
+                    ip: 0,
+                    value_stack_pos: 0,
+                });
+                self.frame_count = self.frame_count + 1;
+                self.run(&obj_func.chunk)
+            }
+            Err(err) => InterpretResult::CompileError,
+        };
+        result
     }
 
     fn runtime_error(&mut self, msg: &str) {
@@ -91,6 +110,8 @@ impl VM {
     ///
     ///
     pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
+        let frame = &self.frames[(self.frame_count - 1) as usize];
+        let chunk = unsafe { &(*frame.assume_init_ref().function).chunk };
         // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
         // let mut op_code_iter = chunk.op_codes.iter();
@@ -226,7 +247,8 @@ impl VM {
 
                 Opcode::OpGetLocal(index) => {
                     let v = self.stack.get(*index).borrow().clone();
-                    self.stack.push(v)
+                    // self.stack.push(v);
+                    self.stack.push(v);
                 }
                 Opcode::OpSetLocal(index) => {
                     self.stack
@@ -261,7 +283,7 @@ impl VM {
 
 #[cfg(test)]
 mod tests {
-    
+
     use crate::value::{ObjectValue, Value};
     use crate::vm::{InterpretResult, VM};
 
@@ -474,7 +496,7 @@ mod tests {
 
     #[test]
     fn vm_global_set() {
-        assert_ok_value(
+        assert_ok(
             &mut VM::new(),
             r#"
 var beverage  = "cafe au lait";
@@ -483,9 +505,6 @@ breakfast = breakfast + " with " +   beverage ;
 print breakfast;
 breakfast;
         "#,
-            Value::Object(ObjectValue::String(
-                "beignets with cafe au lait".to_string(),
-            )),
         );
     }
 

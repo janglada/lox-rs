@@ -6,6 +6,7 @@ use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::{ObjectValue, Value};
+use std::borrow::{Borrow, BorrowMut};
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use std::{io, mem};
@@ -26,7 +27,10 @@ impl<'a> Parser<'a> {
         Parser {
             scanner: Scanner::new(source),
             resolver_errors: Vec::new(),
-            compiler: Compiler::new("script", FunctionType::Script),
+            compiler: Compiler::new2(ObjectFunction::new(
+                FunctionType::Script,
+                "script".to_string(),
+            )),
             current: Token::dummy(),
             previous: Token::dummy(),
             result: Ok(()),
@@ -51,7 +55,7 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    pub fn compile(&mut self) -> bool {
+    pub fn compile(&'a mut self) -> Result<Box<&mut ObjectFunction>, &'a str> {
         self.result = Ok(());
         self.panic_mode = false;
         self.advance();
@@ -62,15 +66,17 @@ impl<'a> Parser<'a> {
             self.declaration();
         }
 
-        self.end_compiler();
-        self.result.is_ok()
+        self.end_compiler()
     }
 
     fn push_compiler(&mut self, kind: FunctionType) {
         // let function_name = self.gc.intern(self.previous..to_owned());
         match &self.previous.token_type {
             TokenType::Identifier(function_name) => {
-                let new_compiler = Compiler::new(function_name, kind);
+                let new_compiler =
+                    Compiler::new2(ObjectFunction::new(kind, function_name.to_string()));
+
+                // let new_compiler = Compiler::new(function_name, kind);
                 let old_compiler = mem::replace(&mut self.compiler, new_compiler);
                 self.compiler.enclosing = Some(old_compiler);
             }
@@ -80,7 +86,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pop_compiler(&mut self) -> ObjectFunction {
+    fn pop_compiler(&mut self) -> Box<ObjectFunction> {
         self.compiler.function.emit_return(self.previous.line);
         match self.compiler.enclosing.take() {
             Some(enclosing) => {
@@ -164,7 +170,8 @@ impl<'a> Parser<'a> {
             .iter_mut()
             .rev()
             .take_while(|l| !(l.depth != -1 && l.depth < self.compiler.scope_depth))
-            .find(|l| Parser::identifiers_equal(&token, &l.token)).is_some()
+            .find(|l| Parser::identifiers_equal(&token, &l.token))
+            .is_some()
         {
             self.error("Already a variable with this name in this scope")
         }
@@ -441,13 +448,18 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    fn end_compiler(&mut self) {
+    fn end_compiler(&'a mut self) -> Result<Box<&mut ObjectFunction>, &'a str> {
         self.compiler.function.emit_return(self.previous.line);
 
-        if let Ok(_res) = self.result {
-            self.compiler
-                .function
-                .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+        match self.result {
+            Ok(_) => {
+                self.compiler
+                    .function
+                    .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+
+                Ok(Box::new(self.compiler.function.borrow_mut()))
+            }
+            Err(msg) => Err(msg),
         }
     }
 

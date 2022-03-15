@@ -1,28 +1,23 @@
-use crate::chunk::{ChunkWriterTrait};
+use crate::chunk::ChunkWriterTrait;
 use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
+use std::borrow::BorrowMut;
 
 use crate::token::{Token, TokenType};
-use crate::value::{Value};
-
+use crate::value::Value;
 
 use num_traits::FromPrimitive;
 
-
-
-
-use std::ops::{AddAssign};
-
-
+use std::ops::AddAssign;
 
 #[derive(Debug)]
 pub struct Compiler {
     pub(crate) enclosing: Option<Box<Compiler>>,
     // current_compilers: &'a mut CurrentCompiler<'a>,
-    pub(crate) function: ObjectFunction,
+    pub(crate) function: Box<ObjectFunction>,
     // scope
     pub(crate) locals: Vec<Local>,
     pub(crate) local_count: usize,
@@ -37,12 +32,23 @@ pub struct Local {
 ///
 
 impl Compiler {
-    pub fn new(name: &str, ftype: FunctionType) -> Box<Self> {
+    // pub fn new(name: &str, ftype: FunctionType) -> Box<Self> {
+    //     const INIT: Option<Local> = None;
+    //
+    //     Box::new(Compiler {
+    //         enclosing: None,
+    //         function: ObjectFunction::new(ftype, name.to_string()),
+    //         locals: Vec::with_capacity(256),
+    //         local_count: 0,
+    //         scope_depth: 0,
+    //     })
+    // }
+    pub fn new2(mut func: ObjectFunction) -> Box<Self> {
         const INIT: Option<Local> = None;
 
         Box::new(Compiler {
             enclosing: None,
-            function: ObjectFunction::new(ftype, name.to_string()),
+            function: Box::new(func),
             locals: Vec::with_capacity(256),
             local_count: 0,
             scope_depth: 0,
