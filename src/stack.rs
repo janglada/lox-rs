@@ -29,7 +29,6 @@ impl<T: fmt::Debug> Stack<T> {
         Stack(Vec::with_capacity(size))
     }
 
-
     /// Returns `true` if the stack contains no elements.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -49,14 +48,17 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.pop()
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Pop the top element off the stack and return it.
     pub fn get(&mut self, idx: usize) -> &T {
         self.0.get(idx).expect("Unable to get index from stack")
     }
-    pub fn replace(&mut self, idx: usize, value: T)  {
+    pub fn replace(&mut self, idx: usize, value: T) {
         std::mem::replace(&mut self.0[idx], value);
     }
-
 
     /// Take a sneaky look at the top element on the stack.
     pub fn peek(&self, dist: usize) -> &T {
@@ -64,11 +66,8 @@ impl<T: fmt::Debug> Stack<T> {
         if len == 0 {
             panic!("Cannot peek into empty stack!")
         }
-        &self.0[len - (1 +  dist)]
+        &self.0[len - (1 + dist)]
     }
-
-
-
 
     /// Make a sneaky change to the top element on the stack.
     pub fn peek_mut(&mut self) -> &mut T {
@@ -79,9 +78,8 @@ impl<T: fmt::Debug> Stack<T> {
         &mut self.0[len - 1]
     }
 
-
     /// Make a sneaky change to the top element on the stack.
-    pub fn reset_stack(&mut self)  {
+    pub fn reset_stack(&mut self) {
         self.0.clear();
     }
 

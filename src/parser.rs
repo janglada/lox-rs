@@ -4,6 +4,7 @@ use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
+use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
 use crate::value::{ObjectValue, Value};
 use std::borrow::BorrowMut;
@@ -116,6 +117,9 @@ impl<'a> Parser<'a> {
         self.function(FunctionType::Function);
         self.define_variable(global, self.previous.line);
     }
+
+    ///
+    ///
     fn var_declaration(&mut self) {
         let index = self.parse_variable("Expect variable name");
         if self.match_token(TokenType::Equal) {
@@ -131,6 +135,8 @@ impl<'a> Parser<'a> {
         self.define_variable(index, self.previous.line);
     }
 
+    ///
+    ///
     fn parse_variable(&mut self, msg: &'a str) -> usize {
         self.consume(TokenType::Identifier("".to_string()), msg);
 
@@ -151,6 +157,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    ///
+    ///
     fn define_variable(&mut self, index: usize, line: isize) {
         // self.previous.line
         if self.compiler.scope_depth > 0 {
@@ -162,6 +170,8 @@ impl<'a> Parser<'a> {
             .emit_byte(Opcode::OpDefineGlobal(index), line)
     }
 
+    ///
+    ///
     fn declare_variable(&mut self) {
         if self.compiler.scope_depth == 0 {
             return;
@@ -198,6 +208,8 @@ impl<'a> Parser<'a> {
         //  self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.previous.line)
     }
 
+    ///
+    ///
     pub(crate) fn identifiers_equal(token1: &Token, token_opt2: &Option<Token>) -> bool {
         if let Some(token2) = token_opt2 {
             if token1.len != token2.len {
@@ -299,6 +311,8 @@ impl<'a> Parser<'a> {
         self.patch_jump(else_jump, &Opcode::OpJump(0));
     }
 
+    ///
+    ///
     fn while_statement(&mut self) {
         let loop_start = self.compiler.function.len();
         self.consume(TokenType::LeftParen, "Expect '(' after while");
@@ -377,6 +391,8 @@ impl<'a> Parser<'a> {
         self.compiler.function.len()
     }
 
+    ///
+    ///
     fn emit_loop(&mut self, loop_start: usize) {
         self.compiler
             .function
@@ -499,6 +515,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    ///
+    ///
     pub(crate) fn resolve_local(&mut self) -> Option<usize> {
         let result = self
             .compiler
@@ -509,6 +527,8 @@ impl<'a> Parser<'a> {
         result
     }
 
+    ///
+    ///
     pub(crate) fn add_local(&mut self, token: Token) {
         let _result = self.compiler.add_local(
             Local {
@@ -523,13 +543,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    ///
+    ///
     pub(crate) fn mark_initialized(&mut self) {
         if self.compiler.scope_depth == 0 {
             return;
         }
         self.compiler
             .locals
-            .get_mut(self.compiler.local_count - 1)
+            .last_mut()
+            // .get_mut(self.compiler.local_count - 1)
             .unwrap()
             .depth = self.compiler.scope_depth;
     }
@@ -540,6 +563,19 @@ impl<'a> Parser<'a> {
         self.push_compiler(kind);
         self.begin_scope();
         self.consume(TokenType::LeftParen, "Expect '(' after function name");
+        if !self.check(TokenType::RightParen) {
+            loop {
+                self.compiler.function.arity += 1;
+                if self.compiler.function.arity == 254 {
+                    self.error_at_current("Can't have more than 255 parameters")
+                }
+                let index = self.parse_variable("Expect parameter name");
+                self.define_variable(index, self.previous.line);
+                if !self.match_token(Comma) {
+                    break;
+                }
+            }
+        }
         self.consume(TokenType::RightParen, "Expect ')' after function name");
         self.consume(TokenType::LeftBrace, "Expect '{' before function body");
         self.block();
@@ -550,27 +586,60 @@ impl<'a> Parser<'a> {
         &function.emit_constant(v, self.previous.line);
     }
 
+    pub fn argument_list(&mut self) -> u8 {
+        let mut count = 0u8;
+        if !self.check(TokenType::RightParen) {
+            loop {
+                self.expression();
+                if count == 255 {
+                    self.error("Can't have more than 255 arguments")
+                }
+                count += 1;
+                if !self.check(TokenType::Comma) {
+                    break;
+                }
+            }
+        }
+        count
+    }
+
+    ///
+    ///
     pub(crate) fn begin_scope(&mut self) {
         self.compiler.scope_depth.add_assign(1)
     }
 
+    ///
+    ///
     pub(crate) fn end_scope(&mut self) {
         self.compiler.scope_depth.sub_assign(1);
 
-        while self.compiler.local_count > 0
-            && self
-                .compiler
-                .locals
-                .get(self.compiler.local_count - 1)
-                .unwrap()
-                .depth
-                > self.compiler.scope_depth
-        {
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpPop, self.previous.line);
-            self.compiler.local_count.sub_assign(1);
+        while let Some(local) = self.compiler.locals.last() {
+            if local.depth > self.compiler.scope_depth {
+                self.compiler
+                    .function
+                    .emit_byte(Opcode::OpPop, self.previous.line);
+
+                self.compiler.locals.pop();
+            } else {
+                break;
+            }
         }
+
+        // while self.compiler.local_count > 0
+        //     && self
+        //         .compiler
+        //         .locals
+        //         .get(self.compiler.local_count - 1)
+        //         .unwrap()
+        //         .depth
+        //         > self.compiler.scope_depth
+        // {
+        //     self.compiler
+        //         .function
+        //         .emit_byte(Opcode::OpPop, self.previous.line);
+        //     self.compiler.local_count.sub_assign(1);
+        // }
     }
 
     ///

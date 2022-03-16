@@ -6,7 +6,7 @@ use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
 use arrayvec::ArrayVec;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 
 pub struct CallFrame {
@@ -109,10 +109,45 @@ impl VM {
         }
     }
 
+    fn call_value(&mut self, callee: &mut Value, arg_count: &u8) -> bool {
+        if callee.is_object() {
+            if let Ok(mut func) = callee.as_function() {
+                return self.call(&mut func, arg_count);
+            } else {
+                return false; // non callable object
+            };
+        }
+
+        self.runtime_error("Can only call functions and classes");
+        false
+    }
+
+    ///
+    ///
+    ///
+    fn call(&mut self, function: &mut ObjectFunction, arg_count: &u8) -> bool {
+        if *arg_count != function.arity {
+            self.runtime_error(
+                format!(
+                    "Expected {} arguments, but got {}",
+                    function.arity, arg_count
+                )
+                .as_str(),
+            );
+            return false;
+        }
+        self.frames.push(CallFrame {
+            function: &mut *function,
+            ip: 0,
+            value_stack_pos: 0,
+        });
+
+        true
+    }
     ///
     ///
     pub fn run(&mut self) -> InterpretResult {
-        let frame = &mut self.frames[self.frame_count - 1];
+        let mut frame = &mut self.frames[self.frame_count - 1];
         let frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
         let chunk = unsafe { &(*frame.function).chunk };
@@ -250,6 +285,11 @@ impl VM {
                 }
 
                 Opcode::OpGetLocal(index) => {
+                    println!(
+                        "STACK GET INDEX {}, STACK LEN {}",
+                        *index + frame_slot,
+                        self.stack.len()
+                    );
                     let v = self.stack.get(*index + frame_slot).borrow().clone();
                     // self.stack.push(v);
                     self.stack.push(v);
@@ -277,6 +317,16 @@ impl VM {
                 Opcode::OpLoop(offset) => {
                     for _i in 0..*offset {
                         op_code_iter.prev();
+                    }
+                }
+
+                Opcode::OpCall(num_args) => {
+                    let mut v = self.stack.peek((*num_args) as usize);
+                    if !self.call_value(&mut v, num_args) {
+                        return InterpretResult::RuntimeError;
+                    } else {
+                        frame = self.frames.last().unwrap();
+                        break;
                     }
                 }
             }

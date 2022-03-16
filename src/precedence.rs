@@ -1,4 +1,4 @@
-use crate::compiler::{and, binary, grouping, literal, number, or, string, unary, variable};
+use crate::compiler::{and, binary, call, grouping, literal, number, or, string, unary, variable};
 use crate::parser::Parser;
 use crate::token::TokenType;
 use lazy_static::lazy_static;
@@ -11,7 +11,7 @@ lazy_static! {
         let mut m = HashMap::new();
 
         // @formatter:off
-        m.insert(TokenType::LeftParen  ,                    ParserRule::new(Some(grouping), None,           &Precedence::None));
+        m.insert(TokenType::LeftParen  ,                    ParserRule::new(Some(grouping), Some(call),     &Precedence::Call));
         m.insert(TokenType::RightParen ,                    ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::LeftBrace ,                     ParserRule::new(None,           None,           &Precedence::None));
         m.insert(TokenType::RightBrace ,                    ParserRule::new(None,           None,           &Precedence::None));

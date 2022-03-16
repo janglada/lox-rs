@@ -44,6 +44,13 @@ impl Value {
         }
     }
 
+    pub fn is_object(&self) -> bool {
+        match self {
+            Value::Object(s) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_function(&self) -> bool {
         match self {
             Value::Object(s) => match s {
@@ -77,6 +84,7 @@ impl Value {
             _ => Err("Must be a obj string"),
         }
     }
+
     pub fn as_function(&self) -> Result<&ObjectFunction, &str> {
         match self {
             Value::Object(s) => match s {

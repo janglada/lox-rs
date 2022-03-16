@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io::Read;
 
-
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum Opcode {
     OpConstant(usize),
@@ -15,11 +13,11 @@ pub enum Opcode {
     OpGetLocal(usize),
     OpSetLocal(usize),
 
+    OpCall(u8),
 
     OpJumpIfFalse(u16),
     OpJump(u16),
     OpLoop(u16),
-
 
     OpNil,
     OpTrue,
@@ -30,7 +28,6 @@ pub enum Opcode {
     /// unary
     OpNot,
     OpNegate,
-
 
     /// binary
     OpAdd,
@@ -44,16 +41,14 @@ pub enum Opcode {
 
     OpPrint,
     OpPop,
-
 }
 
 impl Into<Vec<u8>> for &Opcode {
     fn into(self) -> Vec<u8> {
-
         let mut v = Vec::new();
 
         match &self {
-            Opcode::OpConstant(_) =>  v.push(1),
+            Opcode::OpConstant(_) => v.push(1),
             Opcode::OpDefineGlobal(_) => v.push(2),
             Opcode::OpGetGlobal(_) => v.push(3),
             Opcode::OpSetGlobal(_) => v.push(4),
@@ -77,61 +72,60 @@ impl Into<Vec<u8>> for &Opcode {
             Opcode::OpLess => v.push(22),
             Opcode::OpPrint => v.push(23),
             Opcode::OpPop => v.push(24),
+            Opcode::OpCall(_) => v.push(25),
         };
 
         match &self {
-            Opcode::OpConstant(idx) |
-            Opcode::OpDefineGlobal(idx) |
-            Opcode::OpGetGlobal(idx) |
-            Opcode::OpSetGlobal(idx) |
-            Opcode::OpGetLocal(idx) |
-            Opcode::OpSetLocal(idx) => {
+            // usize
+            Opcode::OpConstant(idx)
+            | Opcode::OpDefineGlobal(idx)
+            | Opcode::OpGetGlobal(idx)
+            | Opcode::OpSetGlobal(idx)
+            | Opcode::OpGetLocal(idx)
+            | Opcode::OpSetLocal(idx) => {
                 v.extend_from_slice(&idx.to_le_bytes());
                 v
             }
 
-            Opcode::OpJumpIfFalse(jump) |
-            Opcode::OpJump(jump) |
-            Opcode::OpLoop(jump) => {
-               v.extend_from_slice(&jump.to_le_bytes());
+            Opcode::OpCall(args) => {
+                v.push(*args);
+                v
+            }
+
+            // u16
+            Opcode::OpJumpIfFalse(jump) | Opcode::OpJump(jump) | Opcode::OpLoop(jump) => {
+                v.extend_from_slice(&jump.to_le_bytes());
                 v
             }
 
             //
-            _ => {
-                v
-            }
+            _ => v,
         }
-
     }
 }
 
-fn usize_from_bytes(bytes: &[u8]) -> usize{
+fn usize_from_bytes(bytes: &[u8]) -> usize {
     let mut dst = [0u8; 8];
     dst.clone_from_slice(bytes);
     usize::from_le_bytes(dst)
 }
-fn usize_from_reader(reader:   &mut File) -> usize{
+fn usize_from_reader(reader: &mut File) -> usize {
     let mut buffer = [0_u8; std::mem::size_of::<usize>()];
     reader.read(&mut buffer);
     usize::from_le_bytes(buffer)
 }
-fn u16_from_bytes(bytes: &[u8]) -> u16{
+fn u16_from_bytes(bytes: &[u8]) -> u16 {
     let mut dst = [0u8; 2];
     dst.clone_from_slice(&bytes[1..]);
     u16::from_le_bytes(dst)
 }
-fn u16_from_reader(reader:   &mut File) -> u16{
+fn u16_from_reader(reader: &mut File) -> u16 {
     let mut buffer = [0_u8; std::mem::size_of::<u16>()];
     reader.read(&mut buffer);
     u16::from_le_bytes(buffer)
 }
 impl Opcode {
-
     pub(crate) fn from_file(reader: &mut File) -> Option<Self> {
-
-
-
         // reader.bytes().for_each(|b|  {
         //     if let Ok(r) = b {
         //         println!("{:?}", r)
@@ -139,8 +133,8 @@ impl Opcode {
         // });
         //
         // return None;
-        let mut buff=  [0u8;1];
-       // let num_read = reader.read(&mut buff);
+        let mut buff = [0u8; 1];
+        // let num_read = reader.read(&mut buff);
         if let Ok(n) = reader.read(&mut buff) {
             if n > 0 {
                 let code_u8 = buff[0];
@@ -175,15 +169,13 @@ impl Opcode {
                     23 => Opcode::OpPrint,
                     24 => Opcode::OpPop,
 
-                    _ => panic!("Unknwon opcode {}", buff[0])
+                    _ => panic!("Unknwon opcode {}", buff[0]),
                 };
-                return Some(code)
+                return Some(code);
             }
         }
         None
     }
-
-
 }
 /*
 

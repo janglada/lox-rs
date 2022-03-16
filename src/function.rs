@@ -13,7 +13,7 @@ pub enum FunctionType {
 pub struct ObjectFunction {
     ftype: FunctionType,
     pub(crate) chunk: Chunk,
-    arity: u8,
+    pub(crate) arity: u8,
     pub name: String,
 }
 

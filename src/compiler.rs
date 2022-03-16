@@ -10,6 +10,7 @@ use crate::value::Value;
 
 use num_traits::FromPrimitive;
 
+use arrayvec::ArrayVec;
 use std::ops::AddAssign;
 
 #[derive(Debug)]
@@ -18,7 +19,7 @@ pub struct Compiler {
     // current_compilers: &'a mut CurrentCompiler<'a>,
     pub(crate) function: Box<ObjectFunction>,
     // scope
-    pub(crate) locals: Vec<Local>,
+    pub(crate) locals: ArrayVec<Local, 256>,
     pub(crate) local_count: usize,
     pub(crate) scope_depth: isize,
 }
@@ -46,33 +47,28 @@ impl Compiler {
         const INIT: Option<Local> = None;
 
         // Slot '0' is claimed by VM internal usage
-        let mut locals = Vec::with_capacity(256);
-        // locals.push(Local {
-        //     token: None,
-        //     depth: 0,
-        // });
+        let mut locals = ArrayVec::new();
+        locals.push(Local {
+            token: None,
+            depth: 0,
+        });
 
         Box::new(Compiler {
             enclosing: None,
             function: Box::new(func),
-            locals: locals,
+            locals,
             local_count: 1,
             scope_depth: 0,
         })
     }
 
     pub(crate) fn add_local(&mut self, local: Local, errors: &mut Vec<&'static str>) {
-        if self.local_count == 256 {
+        if self.locals.len() == 256 {
             errors.push("Too many local variables in function");
             return;
         }
-        self.local_count.add_assign(1);
 
         self.locals.push(local);
-
-        // self.locals[self.local_count] = local;
-
-        // std::mem::replace(&mut self.locals[self.local_count], local);
     }
 
     pub(crate) fn resolve_local(
@@ -89,7 +85,7 @@ impl Compiler {
             .find(|(_i, l)| Parser::identifiers_equal(token, &l.token));
 
         if let Some((i, l)) = local {
-            println!("RESOLVE LOCAL {}", i);
+            println!("RESOLVE LOCAL AT {} LEN = {}", i, self.locals.len());
             if l.depth == -1 {
                 errors.push("Can't read local variable in its own initializer")
             }
@@ -294,4 +290,14 @@ pub fn or(parser: &mut Parser, _can_assign: bool) {
         .emit_byte(Opcode::OpPop, parser.previous.line);
     parser.parse_precedence(&Precedence::Or);
     parser.patch_jump(end_jump, &Opcode::OpJump(0));
+}
+///
+///
+pub fn call(parser: &mut Parser, _can_assign: bool) {
+    let arg_count: u8 = parser.argument_list();
+
+    parser
+        .compiler
+        .function
+        .emit_byte(Opcode::OpCall(arg_count), parser.previous.line);
 }

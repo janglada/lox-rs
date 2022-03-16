@@ -222,7 +222,8 @@ impl Chunk {
             offset = self.disassemble_instruction(offset, writer);
         }
     }
-
+    ///
+    ///
     fn disassemble_instruction(&mut self, offset: usize, writer: &mut dyn Write) -> usize {
         write!(writer, "{:04} ", offset);
         let opcode = self.op_codes.get(offset).unwrap();
@@ -244,10 +245,10 @@ impl Chunk {
             }
 
             Opcode::OpSetLocal(size) => {
-                self.byte_instruction("OP_GET_LOCAL", offset, *size, writer)
+                self.byte_instruction("OP_SET_LOCAL", offset, *size, writer)
             }
             Opcode::OpGetLocal(size) => {
-                self.byte_instruction("OP_SET_LOCAL", offset, *size, writer)
+                self.byte_instruction("OP_GET_LOCAL", offset, *size, writer)
             }
             Opcode::OpAdd => Chunk::simple_instruction("OP_ADD", offset, writer),
             Opcode::OPSubtract => Chunk::simple_instruction("OP_SUBTRACT", offset, writer),
@@ -268,6 +269,10 @@ impl Chunk {
             }
             Opcode::OpJump(jump) => Chunk::jump_instruction("OP_JUMP", offset, 1, jump, writer),
             Opcode::OpLoop(jump) => Chunk::jump_instruction("OP_LOOP", offset, -1, jump, writer),
+
+            Opcode::OpCall(args) => {
+                self.byte_instruction("OP_CALL", offset, (*args) as usize, writer)
+            }
             _ => offset + 1,
         };
 
