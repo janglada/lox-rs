@@ -6,7 +6,7 @@ use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::{Token, TokenType};
 use crate::value::{ObjectValue, Value};
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use std::{io, mem};
@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    pub fn compile(&'a mut self) -> Result<Box<&mut ObjectFunction>, &'a str> {
+    pub fn compile(&'a mut self) -> Result<&mut ObjectFunction, &'a str> {
         self.result = Ok(());
         self.panic_mode = false;
         self.advance();
@@ -86,13 +86,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pop_compiler(&mut self) -> Box<ObjectFunction> {
+    fn pop_compiler(&mut self) -> Box<Compiler> {
         self.compiler.function.emit_return(self.previous.line);
         match self.compiler.enclosing.take() {
-            Some(enclosing) => {
-                let compiler = mem::replace(&mut self.compiler, enclosing);
-                compiler.function
-            }
+            Some(enclosing) => mem::replace(&mut self.compiler, enclosing),
             None => panic!("Didn't find an enclosing compiler"),
         }
     }
@@ -101,7 +98,9 @@ impl<'a> Parser<'a> {
     ///
     ///
     fn declaration(&mut self) {
-        if self.match_token(TokenType::Var) {
+        if self.match_token(TokenType::Fun) {
+            self.fun_declaration()
+        } else if self.match_token(TokenType::Var) {
             self.var_declaration()
         } else {
             self.statement();
@@ -111,6 +110,12 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn fun_declaration(&mut self) {
+        let global = self.parse_variable("Epect function name");
+        self.mark_initialized();
+        self.function(FunctionType::Function);
+        self.define_variable(global, self.previous.line);
+    }
     fn var_declaration(&mut self) {
         let index = self.parse_variable("Expect variable name");
         if self.match_token(TokenType::Equal) {
@@ -193,18 +198,20 @@ impl<'a> Parser<'a> {
         //  self.writer.emit_byte(Opcode::OpDefineGlobal(index),   self.previous.line)
     }
 
-    pub(crate) fn identifiers_equal(token1: &Token, token2: &Token) -> bool {
-        if token1.len != token2.len {
-            false
-        } else {
-            match &token1.token_type {
-                TokenType::Identifier(name1) => match &token2.token_type {
-                    TokenType::Identifier(name2) => return name1 == name2,
+    pub(crate) fn identifiers_equal(token1: &Token, token_opt2: &Option<Token>) -> bool {
+        if let Some(token2) = token_opt2 {
+            if token1.len != token2.len {
+                false
+            } else {
+                match &token1.token_type {
+                    TokenType::Identifier(name1) => match &token2.token_type {
+                        TokenType::Identifier(name2) => return name1 == name2,
+                        _ => return false,
+                    },
                     _ => return false,
-                },
-                _ => return false,
+                }
             }
-
+        } else {
             false
         }
     }
@@ -448,16 +455,15 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    fn end_compiler(&'a mut self) -> Result<Box<&mut ObjectFunction>, &'a str> {
+    fn end_compiler(&mut self) -> Result<&mut ObjectFunction, &str> {
         self.compiler.function.emit_return(self.previous.line);
-
         match self.result {
             Ok(_) => {
                 self.compiler
                     .function
                     .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
-                Ok(Box::new(self.compiler.function.borrow_mut()))
+                Ok(&mut self.compiler.function)
             }
             Err(msg) => Err(msg),
         }
@@ -506,7 +512,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn add_local(&mut self, token: Token) {
         let _result = self.compiler.add_local(
             Local {
-                token,
+                token: Some(token),
                 depth: -1, //self.scope_depth
             },
             &mut self.resolver_errors,
@@ -518,11 +524,30 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn mark_initialized(&mut self) {
+        if self.compiler.scope_depth == 0 {
+            return;
+        }
         self.compiler
             .locals
             .get_mut(self.compiler.local_count - 1)
             .unwrap()
             .depth = self.compiler.scope_depth;
+    }
+
+    ///
+    ///
+    pub(crate) fn function(&mut self, kind: FunctionType) {
+        self.push_compiler(kind);
+        self.begin_scope();
+        self.consume(TokenType::LeftParen, "Expect '(' after function name");
+        self.consume(TokenType::RightParen, "Expect ')' after function name");
+        self.consume(TokenType::LeftBrace, "Expect '{' before function body");
+        self.block();
+
+        let compiler = self.pop_compiler();
+        let mut function = compiler.function;
+        let v = Value::Object(ObjectValue::Function(&*function));
+        &function.emit_constant(v, self.previous.line);
     }
 
     pub(crate) fn begin_scope(&mut self) {

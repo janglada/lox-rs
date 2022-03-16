@@ -1,10 +1,9 @@
 use crate::chunk::ChunkWriterTrait;
-use crate::function::{FunctionType, ObjectFunction};
+use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
-use std::borrow::BorrowMut;
 
 use crate::token::{Token, TokenType};
 use crate::value::Value;
@@ -25,7 +24,7 @@ pub struct Compiler {
 }
 #[derive(Debug, Clone)]
 pub struct Local {
-    pub(crate) token: Token, // clone!!! noooo, just a ref..
+    pub(crate) token: Option<Token>, // clone!!! noooo, just a ref..
     pub(crate) depth: isize,
 }
 
@@ -46,11 +45,18 @@ impl Compiler {
     pub fn new2(mut func: ObjectFunction) -> Box<Self> {
         const INIT: Option<Local> = None;
 
+        // Slot '0' is claimed by VM internal usage
+        let mut locals = Vec::with_capacity(256);
+        // locals.push(Local {
+        //     token: None,
+        //     depth: 0,
+        // });
+
         Box::new(Compiler {
             enclosing: None,
             function: Box::new(func),
-            locals: Vec::with_capacity(256),
-            local_count: 0,
+            locals: locals,
+            local_count: 1,
             scope_depth: 0,
         })
     }
@@ -83,6 +89,7 @@ impl Compiler {
             .find(|(_i, l)| Parser::identifiers_equal(token, &l.token));
 
         if let Some((i, l)) = local {
+            println!("RESOLVE LOCAL {}", i);
             if l.depth == -1 {
                 errors.push("Can't read local variable in its own initializer")
             }

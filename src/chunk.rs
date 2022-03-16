@@ -166,16 +166,17 @@ impl<'s> ChunkOpCodeReader<'s> {
     pub fn read_slice(&mut self, n: usize) -> &[Opcode] {
         let start = self.ip + 1;
         let end = start + n;
+        self.ip += n;
         &self.op_codes[start..end]
     }
 }
 impl<'s> Iterator for ChunkOpCodeReader<'s> {
-    type Item = &'s Opcode;
+    type Item = (usize, &'s Opcode);
     fn next(&mut self) -> Option<Self::Item> {
         let ip = self.ip;
         if ip < self.op_codes.len() {
             self.ip += 1;
-            self.op_codes.get(ip)
+            unsafe { Some((self.ip, self.op_codes.get_unchecked(ip))) }
         } else {
             None
         }
@@ -342,46 +343,6 @@ mod tests {
     use std::fs::File;
     use std::io;
     use std::io::Write;
-
-    #[test]
-    fn negate() {
-        let mut chunk: Chunk = Chunk::new();
-        let idx = chunk.add_constant(Value::Number(3.14));
-
-        chunk.write_chunk(Opcode::OpConstant(idx));
-        chunk.write_chunk(Opcode::OpNegate);
-        chunk.write_chunk(Opcode::OpReturn);
-
-        chunk.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
-
-        let mut vm = VM::new();
-        vm.run(&chunk);
-    }
-
-    #[test]
-    fn basic_sum() {
-        let mut chunk: Chunk = Chunk::new();
-
-        let mut constant = chunk.add_constant(Value::Number(1.2));
-        chunk.write_chunk(Opcode::OpConstant(constant));
-
-        constant = chunk.add_constant(Value::Number(3.4));
-        chunk.write_chunk(Opcode::OpConstant(constant));
-
-        chunk.write_chunk(Opcode::OpAdd);
-
-        constant = chunk.add_constant(Value::Number(5.6));
-        chunk.write_chunk(Opcode::OpConstant(constant));
-
-        chunk.write_chunk(Opcode::OpDivide);
-        chunk.write_chunk(Opcode::OpNegate);
-        chunk.write_chunk(Opcode::OpReturn);
-
-        chunk.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
-
-        let mut vm = VM::new();
-        vm.run(&chunk);
-    }
 
     #[test]
     fn write_bytes() {

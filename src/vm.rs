@@ -5,19 +5,19 @@ use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::{ObjectValue, Value};
-use std::borrow::{Borrow, BorrowMut};
+use arrayvec::ArrayVec;
+use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::mem::MaybeUninit;
 
 pub struct CallFrame {
     function: *mut ObjectFunction,
     ip: u8,
-    value_stack_pos: u8,
+    value_stack_pos: usize,
 }
 
 pub struct VM {
-    pub frames: [MaybeUninit<CallFrame>; 64],
-    pub frame_count: u8,
+    pub frames: ArrayVec<CallFrame, 64>,
+    pub frame_count: usize,
     pub stack: Stack<Value>,
     pub globals: HashMap<String, Value>,
 }
@@ -30,7 +30,7 @@ pub enum InterpretResult {
 impl VM {
     pub fn new() -> Self {
         VM {
-            frames: unsafe { MaybeUninit::uninit().assume_init() },
+            frames: ArrayVec::<CallFrame, 64>::new(),
             frame_count: 0,
             stack: Stack::with_capacity(256),
             globals: HashMap::new(),
@@ -44,23 +44,25 @@ impl VM {
     pub fn interpret(&mut self, source: &str) -> InterpretResult {
         let mut parser = Parser::new(source);
         let result = match parser.compile() {
-            Ok(obj_func) => {
+            Ok(mut function) => {
                 // let handle_ptr: *mut ObjectFunction = ;
-
-                self.frames[self.frame_count as usize].write(CallFrame {
-                    function: &mut **obj_func,
+                self.frames.push(CallFrame {
+                    function: function,
                     ip: 0,
                     value_stack_pos: 0,
                 });
-                self.frame_count = self.frame_count + 1;
-                self.run(&obj_func.chunk)
+                self.frame_count += 1;
+                self.run()
             }
-            Err(err) => InterpretResult::CompileError,
+            Err(_err) => InterpretResult::CompileError,
         };
         result
     }
 
     fn runtime_error(&mut self, msg: &str) {
+        if let Some(frame) = self.frames.last() {
+            // unsafe { (*frame.function).chunk }
+        }
         eprintln!("Runtime error {}", msg);
     }
 
@@ -109,13 +111,15 @@ impl VM {
 
     ///
     ///
-    pub fn run(&mut self, chunk: &Chunk) -> InterpretResult {
-        let frame = &self.frames[(self.frame_count - 1) as usize];
-        let chunk = unsafe { &(*frame.assume_init_ref().function).chunk };
+    pub fn run(&mut self) -> InterpretResult {
+        let frame = &mut self.frames[self.frame_count - 1];
+        let frame_slot = frame.value_stack_pos;
+        // let frame = frames_opt.last().unwrap();
+        let chunk = unsafe { &(*frame.function).chunk };
         // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
         // let mut op_code_iter = chunk.op_codes.iter();
-        while let Some(c) = op_code_iter.next() {
+        while let Some((ip, c)) = op_code_iter.next() {
             match c {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.constants.get(*idx).unwrap();
@@ -246,13 +250,13 @@ impl VM {
                 }
 
                 Opcode::OpGetLocal(index) => {
-                    let v = self.stack.get(*index).borrow().clone();
+                    let v = self.stack.get(*index + frame_slot).borrow().clone();
                     // self.stack.push(v);
                     self.stack.push(v);
                 }
                 Opcode::OpSetLocal(index) => {
                     self.stack
-                        .replace(*index, self.stack.peek(0).borrow().clone());
+                        .replace(*index + frame_slot, self.stack.peek(0).borrow().clone());
                 }
                 Opcode::OpPop => {
                     self.stack.pop();
