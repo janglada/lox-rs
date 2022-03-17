@@ -3,22 +3,17 @@ use std::fmt::{Display, Formatter};
 use crate::function::ObjectFunction;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ObjectValue {
-    String(String),
-    Function(*const ObjectFunction),
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Boolean(bool),
     Nil,
     Number(f64),
-    Object(ObjectValue),
+    String(String),
+    Function(*const ObjectFunction),
 }
 
 impl Value {
     pub fn new_string(str: &str) -> Value {
-        Value::Object(ObjectValue::String(str.to_owned()))
+        Value::String(str.to_owned())
     }
 
     pub fn is_number(&self) -> bool {
@@ -36,27 +31,21 @@ impl Value {
 
     pub fn is_string(&self) -> bool {
         match self {
-            Value::Object(s) => match s {
-                ObjectValue::String(_str) => true,
-                _ => false,
-            },
+            Value::String(_str) => true,
             _ => false,
         }
     }
 
     pub fn is_object(&self) -> bool {
         match self {
-            Value::Object(s) => true,
+            Value::Function(s) => true,
             _ => false,
         }
     }
 
     pub fn is_function(&self) -> bool {
         match self {
-            Value::Object(s) => match s {
-                ObjectValue::Function(_) => true,
-                _ => false,
-            },
+            Value::Function(s) => true,
             _ => false,
         }
     }
@@ -77,23 +66,17 @@ impl Value {
 
     pub fn as_string(&self) -> Result<&String, &str> {
         match self {
-            Value::Object(s) => match s {
-                ObjectValue::String(str) => Ok(str),
-                _ => Err("Must be a string"),
-            },
+            Value::String(s) => Ok(s),
             _ => Err("Must be a obj string"),
         }
     }
 
-    pub fn as_function(&self) -> Result<&ObjectFunction, &str> {
+    pub fn as_function(&self) -> Result<&mut ObjectFunction, &str> {
         match self {
-            Value::Object(s) => match s {
-                ObjectValue::Function(objFn) => {
-                    let x = unsafe { &(*(*objFn)) };
-                    Ok(x)
-                }
-                _ => Err("Must be a string"),
-            },
+            Value::Function(objFn) => {
+                let mut x = unsafe { &(*(*objFn)) };
+                Ok(x)
+            }
             _ => Err("Must be a obj string"),
         }
     }
@@ -111,38 +94,34 @@ impl Display for Value {
             Value::Number(n) => {
                 write!(f, "{}", n)
             }
-            Value::Object(obj) => match obj {
-                ObjectValue::String(s) => {
-                    write!(f, "{}", s)
-                }
-                ObjectValue::Function(obj) => {
-                    let name = unsafe { &(*(*obj)).name };
-                    write!(f, "<fn {}>", name)
-                }
-            },
+
+            Value::String(s) => {
+                write!(f, "{}", s)
+            }
+            Value::Function(obj) => {
+                let name = unsafe { &(*(*obj)).name };
+                write!(f, "<fn {}>", name)
+            }
         }
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::value::{ObjectValue, Value};
+    use crate::value::Value;
 
     #[test]
     fn assert_eqs() {
         assert_eq!(
-            Value::Object(ObjectValue::String("A".to_string())),
-            Value::Object(ObjectValue::String("A".to_string()))
+            Value::String("A".to_string()),
+            Value::String("A".to_string())
         );
 
         assert_ne!(
-            Value::Object(ObjectValue::String("A".to_string())),
-            Value::Object(ObjectValue::String("B".to_string()))
+            Value::String("A".to_string()),
+            Value::String("B".to_string())
         );
 
-        assert_ne!(
-            Value::Object(ObjectValue::String("A".to_string())),
-            Value::Number(1f64)
-        );
+        assert_ne!(Value::String("A".to_string()), Value::Number(1f64));
 
         assert_eq!(Value::Number(3.1), Value::Number(3.1),);
 

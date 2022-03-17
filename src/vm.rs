@@ -4,7 +4,7 @@ use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
-use crate::value::{ObjectValue, Value};
+use crate::value::Value;
 use arrayvec::ArrayVec;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
@@ -150,7 +150,7 @@ impl VM {
         let mut frame = &mut self.frames[self.frame_count - 1];
         let frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
-        let chunk = unsafe { &(*frame.function).chunk };
+        let mut chunk = unsafe { &(*frame.function).chunk };
         // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
         // let mut op_code_iter = chunk.op_codes.iter();
@@ -186,9 +186,7 @@ impl VM {
                 Opcode::OpAdd => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Number(a + b)),
                     _ => match self.pop_operand_as_strings() {
-                        Ok((a, b)) => self
-                            .stack
-                            .push(Value::Object(ObjectValue::String(format!("{}{}", a, b)))),
+                        Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
                         _ => {
                             self.runtime_error("Operands must be of same type");
                             return InterpretResult::RuntimeError;
@@ -325,7 +323,7 @@ impl VM {
                     if !self.call_value(&mut v, num_args) {
                         return InterpretResult::RuntimeError;
                     } else {
-                        frame = self.frames.last().unwrap();
+                        frame = self.frames.last_mut().unwrap();
                         break;
                     }
                 }
@@ -338,7 +336,7 @@ impl VM {
 #[cfg(test)]
 mod tests {
 
-    use crate::value::{ObjectValue, Value};
+    use crate::value::Value;
     use crate::vm::{InterpretResult, VM};
 
     fn assert_ok(vm: &mut VM, s: &str) {
@@ -379,7 +377,7 @@ mod tests {
             InterpretResult::Ok(val) => {
                 panic!(
                     "Expected RuntimeError, found OK({})",
-                    val.unwrap_or(Value::Object(ObjectValue::String("empty".to_string())))
+                    val.unwrap_or(Value::String("empty".to_string()))
                 )
             }
             InterpretResult::CompileError => {
@@ -396,7 +394,7 @@ mod tests {
             InterpretResult::Ok(val) => {
                 panic!(
                     "Expected RuntimeError, found OK({})",
-                    val.unwrap_or(Value::Object(ObjectValue::String("empty".to_string())))
+                    val.unwrap_or(Value::String("empty".to_string()))
                 )
             }
             InterpretResult::CompileError => {
@@ -493,11 +491,7 @@ mod tests {
 
     #[test]
     fn vm_str_eval() {
-        assert_ok_value(
-            &mut VM::new(),
-            r#""A";"#,
-            Value::Object(ObjectValue::String("A".to_string())),
-        );
+        assert_ok_value(&mut VM::new(), r#""A";"#, Value::String("A".to_string()));
     }
 
     #[test]
@@ -511,7 +505,7 @@ mod tests {
         assert_ok_value(
             &mut VM::new(),
             r#""A" + "b";"#,
-            Value::Object(ObjectValue::String("Ab".to_string())),
+            Value::String("Ab".to_string()),
         );
     }
 
@@ -530,7 +524,7 @@ mod tests {
         assert_ok_value(
             &mut VM::new(),
             "print 1 + 2;",
-            Value::Object(ObjectValue::String("Ab".to_string())),
+            Value::String("Ab".to_string()),
         );
     }
     #[test]
@@ -542,9 +536,7 @@ mod tests {
         var breakfast = "beignets with " + beverage ;
         print breakfast;
         "#,
-            Value::Object(ObjectValue::String(
-                "beignets with cafe au lait".to_string(),
-            )),
+            Value::String("beignets with cafe au lait".to_string()),
         );
     }
 

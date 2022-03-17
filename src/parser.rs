@@ -6,8 +6,7 @@ use crate::precedence::{ParserRule, Precedence};
 use crate::scanner::Scanner;
 use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
-use crate::value::{ObjectValue, Value};
-use std::borrow::BorrowMut;
+use crate::value::Value;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use std::{io, mem};
@@ -152,7 +151,7 @@ impl<'a> Parser<'a> {
             TokenType::Identifier(name) => self
                 .compiler
                 .function
-                .make_constant(Value::Object(ObjectValue::String(name.to_string()))),
+                .make_constant(Value::String(name.to_string())),
             _ => panic!("should not happen"),
         }
     }
@@ -582,7 +581,7 @@ impl<'a> Parser<'a> {
 
         let compiler = self.pop_compiler();
         let mut function = compiler.function;
-        let v = Value::Object(ObjectValue::Function(&*function));
+        let v = Value::Function(&*function);
         &function.emit_constant(v, self.previous.line);
     }
 

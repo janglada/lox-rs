@@ -11,7 +11,6 @@ use crate::value::Value;
 use num_traits::FromPrimitive;
 
 use arrayvec::ArrayVec;
-use std::ops::AddAssign;
 
 #[derive(Debug)]
 pub struct Compiler {
@@ -23,6 +22,10 @@ pub struct Compiler {
     pub(crate) local_count: usize,
     pub(crate) scope_depth: isize,
 }
+
+///
+///
+///
 #[derive(Debug, Clone)]
 pub struct Local {
     pub(crate) token: Option<Token>, // clone!!! noooo, just a ref..

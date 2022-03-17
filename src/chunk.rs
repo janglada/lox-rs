@@ -1,5 +1,5 @@
 use crate::opcode::Opcode;
-use crate::value::{ObjectValue, Value};
+use crate::value::Value;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -50,17 +50,15 @@ impl Chunk {
                     file.write(&[3]); // type
                     file.write(&d.to_le_bytes());
                 }
-                Value::Object(obj) => match obj {
-                    ObjectValue::String(s) => {
-                        file.write(&[4]);
-                        let str_bytes = s.as_bytes();
-                        file.write(&Chunk::size_to_bytes(str_bytes.len()));
-                        file.write(str_bytes);
-                    }
-                    ObjectValue::Function(_) => {
-                        todo!("serialize funtcion to bytes");
-                    }
-                },
+                Value::String(s) => {
+                    file.write(&[4]);
+                    let str_bytes = s.as_bytes();
+                    file.write(&Chunk::size_to_bytes(str_bytes.len()));
+                    file.write(str_bytes);
+                }
+                Value::Function(func) => {
+                    todo!("serialize funtcion to bytes");
+                }
             }
         });
 
@@ -109,7 +107,7 @@ impl Chunk {
                     }
                     file.read(buff_f64.as_mut_slice());
                     let s = String::from_utf8(buff_f64).ok().unwrap();
-                    Value::Object(ObjectValue::String(s))
+                    Value::String(s)
                 }
                 x => panic!("Unknown type {}", x),
             };
@@ -343,7 +341,7 @@ impl Chunk {
 mod tests {
     use crate::chunk::Chunk;
     use crate::opcode::Opcode;
-    use crate::value::{ObjectValue, Value};
+    use crate::value::Value;
     use crate::vm::VM;
     use std::fs::File;
     use std::io;
@@ -365,7 +363,7 @@ mod tests {
         idx = chunk.add_constant(Value::Nil);
         chunk.write_chunk(Opcode::OpConstant(idx));
 
-        idx = chunk.add_constant(Value::Object(ObjectValue::String("hello".to_string())));
+        idx = chunk.add_constant(Value::String("hello".to_string()));
         chunk.write_chunk(Opcode::OpConstant(idx));
 
         let mut file = File::create("foo.txt").unwrap();
