@@ -311,6 +311,10 @@ impl Chunk {
             Opcode::OpSetLocal(idx) => {
                 writeln!(writer, "{: <12} {}  ", name, idx);
             }
+
+            Opcode::OpCall(num_args) => {
+                writeln!(writer, "{: <12} {}  ", name, num_args);
+            }
             _ => {
                 panic!("INVALID")
             }

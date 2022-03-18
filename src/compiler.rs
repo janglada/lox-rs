@@ -88,7 +88,7 @@ impl Compiler {
             .find(|(_i, l)| Parser::identifiers_equal(token, &l.token));
 
         if let Some((i, l)) = local {
-            println!("RESOLVE LOCAL AT {} LEN = {}", i, self.locals.len());
+            // println!("RESOLVE LOCAL AT {} LEN = {}", i, self.locals.len());
             if l.depth == -1 {
                 errors.push("Can't read local variable in its own initializer")
             }

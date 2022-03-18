@@ -8,7 +8,7 @@ pub enum Value {
     Nil,
     Number(f64),
     String(String),
-    Function(*const ObjectFunction),
+    Function(*mut ObjectFunction),
 }
 
 impl Value {
@@ -74,7 +74,7 @@ impl Value {
     pub fn as_function(&self) -> Result<&mut ObjectFunction, &str> {
         match self {
             Value::Function(objFn) => {
-                let mut x = unsafe { &(*(*objFn)) };
+                let x = unsafe { &mut (*(*objFn)) };
                 Ok(x)
             }
             _ => Err("Must be a obj string"),

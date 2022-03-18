@@ -1,5 +1,6 @@
 use crate::chunk::ChunkWriterTrait;
 use crate::compiler::{Compiler, Local};
+use crate::error::LoxCompileError;
 use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::precedence::{ParserRule, Precedence};
@@ -7,9 +8,19 @@ use crate::scanner::Scanner;
 use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
+use miette::NamedSource;
+use std::borrow::Borrow;
 use std::io::Write;
 use std::ops::{AddAssign, SubAssign};
 use std::{io, mem};
+
+#[derive(Debug)]
+pub struct ParserError {
+    line: isize,
+    start: usize,
+    len: usize,
+    msg: String,
+}
 
 #[derive(Debug)]
 pub struct Parser<'a> {
@@ -17,7 +28,7 @@ pub struct Parser<'a> {
     pub compiler: Box<Compiler>,
     pub current: Token,
     pub previous: Token,
-    pub result: Result<(), &'a str>,
+    pub result: Option<ParserError>,
     pub panic_mode: bool,
     resolver_errors: Vec<&'static str>,
 }
@@ -33,7 +44,7 @@ impl<'a> Parser<'a> {
             )),
             current: Token::dummy(),
             previous: Token::dummy(),
-            result: Ok(()),
+            result: None,
             panic_mode: false,
         }
     }
@@ -42,6 +53,7 @@ impl<'a> Parser<'a> {
         self.previous = self.current.clone();
         loop {
             self.current = self.scanner.scan_token();
+            // println!("CURENT {:?} ", self.current.token_type);
             match self.current.token_type {
                 TokenType::Error => {
                     println!("ERROR")
@@ -55,8 +67,8 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    pub fn compile(&'a mut self) -> Result<&mut ObjectFunction, &'a str> {
-        self.result = Ok(());
+    pub fn compile(&mut self) -> Result<&mut ObjectFunction, LoxCompileError> {
+        self.result = None;
         self.panic_mode = false;
         self.advance();
         // self.expression();
@@ -239,6 +251,8 @@ impl<'a> Parser<'a> {
             self.if_statement()
         } else if self.match_token(TokenType::While) {
             self.while_statement()
+        } else if self.match_token(TokenType::Return) {
+            self.return_statement()
         } else if self.match_token(TokenType::LeftBrace) {
             self.begin_scope();
             self.block();
@@ -312,6 +326,17 @@ impl<'a> Parser<'a> {
 
     ///
     ///
+    fn return_statement(&mut self) {
+        if self.match_token(TokenType::SemiColon) {
+            self.compiler.function.emit_return(self.previous.line);
+        } else {
+            self.expression();
+            self.consume(TokenType::SemiColon, "Expect ';' after return value");
+            self.compiler
+                .function
+                .emit_byte(Opcode::OpReturn, self.previous.line);
+        }
+    }
     fn while_statement(&mut self) {
         let loop_start = self.compiler.function.len();
         self.consume(TokenType::LeftParen, "Expect '(' after while");
@@ -465,22 +490,35 @@ impl<'a> Parser<'a> {
             self.advance();
             return;
         }
+        // io::stdout().flush().ok().unwrap();
         self.error_at_current(message);
     }
 
     ///
     ///
-    fn end_compiler(&mut self) -> Result<&mut ObjectFunction, &str> {
+    fn end_compiler(&mut self) -> Result<&mut ObjectFunction, LoxCompileError> {
         self.compiler.function.emit_return(self.previous.line);
-        match self.result {
-            Ok(_) => {
+
+        // if let None = self.result {
+        //     self.compiler
+        //         .function
+        //         .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+        //
+        //     return Ok(&mut self.compiler.function);
+        // }
+        let res = &self.result;
+        match res {
+            None => {
                 self.compiler
                     .function
                     .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
                 Ok(&mut self.compiler.function)
             }
-            Err(msg) => Err(msg),
+            Some(err) => Err(LoxCompileError {
+                src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
+                bad_bit: (err.start, err.len).into(),
+            }),
         }
     }
 
@@ -581,7 +619,7 @@ impl<'a> Parser<'a> {
 
         let compiler = self.pop_compiler();
         let mut function = compiler.function;
-        let v = Value::Function(&*function);
+        let v = Value::Function(&mut *function);
         &function.emit_constant(v, self.previous.line);
     }
 
@@ -599,19 +637,20 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        self.consume(TokenType::RightParen, "Expect ')' after arguments");
         count
     }
 
     ///
     ///
     pub(crate) fn begin_scope(&mut self) {
-        self.compiler.scope_depth.add_assign(1)
+        self.compiler.scope_depth += 1;
     }
 
     ///
     ///
     pub(crate) fn end_scope(&mut self) {
-        self.compiler.scope_depth.sub_assign(1);
+        self.compiler.scope_depth -= 1;
 
         while let Some(local) = self.compiler.locals.last() {
             if local.depth > self.compiler.scope_depth {
@@ -669,6 +708,16 @@ impl<'a> Parser<'a> {
             }
         }
         eprintln!(": {}", msg);
-        self.result = Err(msg);
+
+        self.result = Some(ParserError {
+            line: token.line,
+            start: token.start,
+            len: token.len,
+            msg: msg.to_string(),
+        })
+        // self.result = Some(Box::new(LoxCompileError {
+        //     src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
+        //     bad_bit: (9, 4).into(),
+        // }));
     }
 }

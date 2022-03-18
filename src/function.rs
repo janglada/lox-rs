@@ -49,7 +49,8 @@ impl ChunkWriterTrait for ObjectFunction {
     ///
     ///
     fn emit_return(&mut self, line: isize) {
-        self.emit_byte(Opcode::OpReturn, line)
+        self.emit_byte(Opcode::OpNil, line);
+        self.emit_byte(Opcode::OpReturn, line);
     }
     ///
     ///

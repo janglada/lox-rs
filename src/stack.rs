@@ -70,12 +70,12 @@ impl<T: fmt::Debug> Stack<T> {
     }
 
     /// Make a sneaky change to the top element on the stack.
-    pub fn peek_mut(&mut self) -> &mut T {
+    pub fn peek_mut(&mut self, dist: usize) -> &mut T {
         let len = self.0.len();
         if len == 0 {
             panic!("Cannot peek into empty stack!")
         }
-        &mut self.0[len - 1]
+        &mut self.0[len - (1 + dist)]
     }
 
     /// Make a sneaky change to the top element on the stack.

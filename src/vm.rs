@@ -1,11 +1,13 @@
 use crate::chunk::{Chunk, ChunkOpCodeReader};
 
+use crate::error::LoxRuntimeError;
 use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
+use miette::{Diagnostic, IntoDiagnostic, Report, Result};
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 
@@ -41,60 +43,104 @@ impl VM {
         println!("{}", value)
     }
 
-    pub fn interpret(&mut self, source: &str) -> InterpretResult {
+    pub fn interpret(&mut self, source: &str) -> Result<()> {
         let mut parser = Parser::new(source);
-        let result = match parser.compile() {
-            Ok(mut function) => {
-                // let handle_ptr: *mut ObjectFunction = ;
+
+        // let mut function = parser.compile()?;
+        // self.frames.push(CallFrame {
+        //     function,
+        //     ip: 0,
+        //     value_stack_pos: 0,
+        // });
+        // self.frame_count += 1;
+        // self.run()
+        let compile_result = parser.compile();
+        return match compile_result {
+            Err(err) => {
+                println!("{:?}", err);
+                Err(err).into_diagnostic()
+            }
+            Ok(function) => {
                 self.frames.push(CallFrame {
-                    function: function,
+                    function,
                     ip: 0,
                     value_stack_pos: 0,
                 });
                 self.frame_count += 1;
                 self.run()
             }
-            Err(_err) => InterpretResult::CompileError,
         };
-        result
+
+        // if let Err(err) = compile_result {
+        //     return Err(err).into_diagnostic();
+        // } else if let Ok(function) = compile_result {
+        //     // let handle_ptr: *mut ObjectFunction = ;
+        //     self.frames.push(CallFrame {
+        //         function,
+        //         ip: 0,
+        //         value_stack_pos: 0,
+        //     });
+        //     self.frame_count += 1;
+        //     return self.run();
+        // }
+
+        // let result = match parser.compile() {
+        //     Ok(function) => {
+        //         // let handle_ptr: *mut ObjectFunction = ;
+        //         self.frames.push(CallFrame {
+        //             function,
+        //             ip: 0,
+        //             value_stack_pos: 0,
+        //         });
+        //         self.frame_count += 1;
+        //         self.run()
+        //     }
+        //     Err(_err) => Err(_err).into_diagnostic(),
+        // };
+        // result
     }
 
     fn runtime_error(&mut self, msg: &str) {
+        // self.frames.iter().enumerate().for_each(|(pos, frame)| {
+        //     let func = frame.function;
+        //     let instruction =
+        // })
+
         if let Some(frame) = self.frames.last() {
             // unsafe { (*frame.function).chunk }
         }
-        eprintln!("Runtime error {}", msg);
+        eprintln!("Runtime error TODO{}", msg);
     }
 
-    pub fn pop_operand_as_number(&mut self) -> Result<f64, InterpretResult> {
+    pub fn pop_operand_as_number(&mut self) -> Result<f64> {
         if !self.stack.peek(0).is_number() {
             self.runtime_error("Operand must be numbers");
-            return Err(InterpretResult::RuntimeError);
+            return Err(LoxRuntimeError::new())?;
         }
 
         Ok(*self.stack.pop().as_number().unwrap())
     }
 
-    pub fn pop_operand_as_numbers(&mut self) -> Result<(f64, f64), InterpretResult> {
+    pub fn pop_operand_as_numbers(&mut self) -> Result<(f64, f64)> {
         if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
-            return Err(InterpretResult::RuntimeError);
+            return Err(LoxRuntimeError::new())?;
         }
         let b = *self.stack.pop().as_number().unwrap();
         let a = *self.stack.pop().as_number().unwrap();
         Ok((a, b))
     }
-    pub fn pop_operand_as_strings(&mut self) -> Result<(String, String), InterpretResult> {
+    pub fn pop_operand_as_strings(&mut self) -> Result<(String, String)> {
         if !self.stack.peek(0).is_string() || !self.stack.peek(1).is_string() {
-            return Err(InterpretResult::RuntimeError);
+            return Err(LoxRuntimeError::new())?;
         }
         let b = self.stack.pop().as_string().unwrap().clone();
         let a = self.stack.pop().as_string().unwrap().clone();
         Ok((a, b))
     }
-    pub fn pop_operand_as_bool(&mut self) -> Result<bool, InterpretResult> {
+    pub fn pop_operand_as_bool(&mut self) -> Result<bool> {
         if !self.stack.peek(0).is_bool() {
             self.runtime_error("Operands must be boolean");
-            return Err(InterpretResult::RuntimeError);
+            return Err(LoxRuntimeError::new())?;
         }
         let b = *self.stack.pop().as_bool().unwrap();
 
@@ -109,13 +155,29 @@ impl VM {
         }
     }
 
-    fn call_value(&mut self, callee: &mut Value, arg_count: &u8) -> bool {
+    // fn peek_and_call_value(&mut self, peek_pos: usize, arg_count: &u8) -> bool {
+    //     let v = self.stack.peek_mut(peek_pos);
+    //     self.call_value(v, arg_count)
+    // }
+
+    fn call_value(&mut self, peek_pos: usize, arg_count: &u8) -> bool {
+        let callee = self.stack.peek_mut(peek_pos);
         if callee.is_object() {
-            if let Ok(mut func) = callee.as_function() {
-                return self.call(&mut func, arg_count);
-            } else {
-                return false; // non callable object
-            };
+            match callee {
+                Value::Function(func) => {
+                    let f = unsafe { &mut (*(*func)) };
+
+                    return self.call(f, arg_count);
+                }
+                _ => {
+                    todo!();
+                }
+            }
+            // if let Ok(mut func) = callee.as_function() {
+            //     return self.call(&mut func, arg_count);
+            // } else {
+            //     return false; // non callable object
+            // };
         }
 
         self.runtime_error("Can only call functions and classes");
@@ -139,14 +201,14 @@ impl VM {
         self.frames.push(CallFrame {
             function: &mut *function,
             ip: 0,
-            value_stack_pos: 0,
+            value_stack_pos: self.stack.len() - *arg_count as usize - 1,
         });
 
         true
     }
     ///
     ///
-    pub fn run(&mut self) -> InterpretResult {
+    pub fn run(&mut self) -> Result<()> {
         let mut frame = &mut self.frames[self.frame_count - 1];
         let frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
@@ -161,26 +223,25 @@ impl VM {
                     self.stack.push(const_val.borrow().clone());
                     // println!("const val {}", const_val);
                 }
-                Opcode::OpReturn => {
-                    return if let Some(ret_val) = self.stack.safe_pop() {
-                        VM::print_value(&ret_val);
-                        InterpretResult::Ok(Some(ret_val.borrow().clone()))
-                    } else {
-                        InterpretResult::Ok(None)
-                    }
-                }
 
                 Opcode::OpNegate => {
-                    match self.pop_operand_as_number() {
-                        Ok(f) => {
-                            // VM::replace(&mut self.stack, &mut Value::Number(-f));
-                            self.stack.push(Value::Number(-f));
-                        }
-                        Err(result) => {
-                            self.runtime_error("Operand must be a number");
-                            return result;
-                        }
+                    let r = self.pop_operand_as_number().map(|f| {
+                        self.stack.push(Value::Number(-f));
+                    });
+                    if r.is_err() {
+                        return r;
                     }
+
+                    // match self.pop_operand_as_number() {
+                    //     Ok(f) => {
+                    //         // VM::replace(&mut self.stack, &mut Value::Number(-f));
+                    //         self.stack.push(Value::Number(-f));
+                    //     }
+                    //     Err(result) => {
+                    //         self.runtime_error("Operand must be a number");
+                    //         return result;
+                    //     }
+                    // }
                 }
 
                 Opcode::OpAdd => match self.pop_operand_as_numbers() {
@@ -189,24 +250,24 @@ impl VM {
                         Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
                         _ => {
                             self.runtime_error("Operands must be of same type");
-                            return InterpretResult::RuntimeError;
+                            return Err(LoxRuntimeError::new())?;
                         }
                     },
                 },
 
                 Opcode::OPSubtract => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Number(a - b)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
 
                 Opcode::OPMultiply => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Number(a * b)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
 
                 Opcode::OpDivide => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Number(a / b)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
                 Opcode::OpFalse => self.stack.push(Value::Boolean(false)),
                 Opcode::OpNil => self.stack.push(Value::Nil),
@@ -214,7 +275,7 @@ impl VM {
 
                 Opcode::OpNot => match self.pop_operand_as_bool() {
                     Ok(bool_operand) => self.stack.push(Value::Boolean(!bool_operand)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
 
                 Opcode::OpEqual => {
@@ -225,12 +286,12 @@ impl VM {
 
                 Opcode::OpGreater => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Boolean(a > b)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
 
                 Opcode::OpLess => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Boolean(a < b)),
-                    Err(result) => return result,
+                    Err(result) => return Err(result),
                 },
 
                 Opcode::OpPrint => {
@@ -261,7 +322,7 @@ impl VM {
                         }
                         None => {
                             self.runtime_error(format!("Undefined variable {}", name).as_str());
-                            return InterpretResult::RuntimeError;
+                            return Err(LoxRuntimeError::new())?;
                         }
                     }
                 }
@@ -275,7 +336,7 @@ impl VM {
 
                     if !self.globals.contains_key(name) {
                         self.runtime_error(format!("Undefined variable {}", name).as_str());
-                        return InterpretResult::RuntimeError;
+                        return Err(LoxRuntimeError::new())?;
                     } else {
                         let v = self.stack.peek(0).borrow().clone();
                         self.globals.insert(name.to_string(), v);
@@ -319,17 +380,42 @@ impl VM {
                 }
 
                 Opcode::OpCall(num_args) => {
-                    let mut v = self.stack.peek((*num_args) as usize);
-                    if !self.call_value(&mut v, num_args) {
-                        return InterpretResult::RuntimeError;
+                    // let mut v = self.stack.peek_mut((*num_args) as usize);
+                    if !self.call_value((*num_args) as usize, num_args) {
+                        return Err(LoxRuntimeError::new())?;
                     } else {
                         frame = self.frames.last_mut().unwrap();
+                        chunk = unsafe { &(*frame.function).chunk };
+                        // for c in &chunk.op_codes
+                        op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
                         break;
                     }
                 }
+
+                // Opcode::OpReturn => {
+                //     return if let Some(ret_val) = self.stack.safe_pop() {
+                //         VM::print_value(&ret_val);
+                //         InterpretResult::Ok(Some(ret_val.borrow().clone()))
+                //     } else {
+                //         InterpretResult::Ok(None)
+                //     }
+                // }
+                Opcode::OpReturn => {
+                    let result: Value = self.stack.pop();
+                    self.frames.pop();
+                    if self.frames.is_empty() {
+                        self.stack.pop();
+                        return Ok(());
+                    }
+
+                    frame = self.frames.last_mut().unwrap();
+                    chunk = unsafe { &(*frame.function).chunk };
+                    // for c in &chunk.op_codes
+                    op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+                }
             }
         }
-        InterpretResult::RuntimeError
+        return Err(LoxRuntimeError::new())?;
     }
 }
 
@@ -338,197 +424,217 @@ mod tests {
 
     use crate::value::Value;
     use crate::vm::{InterpretResult, VM};
+    use miette::{
+        GraphicalReportHandler, GraphicalTheme, NamedSource, NarratableReportHandler, Result,
+    };
+    fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
+        // InterpretResult::Ok(val) => {
+        //
+        // }
+        // InterpretResult::CompileError => {
+        //     panic!("CompileError")
+        // }
+        // InterpretResult::RuntimeError => {
+        //     panic!("RuntimeError")
+        // }
 
-    fn assert_ok(vm: &mut VM, s: &str) {
-        match vm.interpret(s) {
-            InterpretResult::Ok(val) => {
-                println!("Ok {:?}", val);
-            }
-            InterpretResult::CompileError => {
-                panic!("CompileError")
-            }
-            InterpretResult::RuntimeError => {
-                panic!("RuntimeError")
-            }
+        // vm.interpret(s)
+
+        if let Err(err) = vm.interpret(s) {
+            let mut out = String::new();
+            let fmt = GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
+                .with_width(80)
+                .render_report(&mut out, err.as_ref())
+                .unwrap();
+
+            println!("{}", out)
         }
+
+        Ok(())
     }
 
-    fn assert_ok_value(vm: &mut VM, s: &str, expected_value: Value) {
-        match vm.interpret(s) {
-            InterpretResult::Ok(val) => {
-                if let Some(r) = val {
-                    println!("Ok {}", r);
-                    assert_eq!(expected_value, r)
-                } else {
-                    println!("Ok(empty)");
-                }
-            }
-            InterpretResult::CompileError => {
-                panic!("CompileError")
-            }
-            InterpretResult::RuntimeError => {
-                panic!("RuntimeError")
-            }
-        }
+    fn assert_ok_value(vm: &mut VM, s: &'static str, expected_value: Value) -> Result<()> {
+        vm.interpret(s)
+
+        // match vm.interpret(s) {
+        //     InterpretResult::Ok(val) => {
+        //         if let Some(r) = val {
+        //             println!("Ok {}", r);
+        //             assert_eq!(expected_value, r)
+        //         } else {
+        //             println!("Ok(empty)");
+        //         }
+        //     }
+        //     InterpretResult::CompileError => {
+        //         panic!("CompileError")
+        //     }
+        //     InterpretResult::RuntimeError => {
+        //         panic!("RuntimeError")
+        //     }
+        // }
     }
 
-    fn assert_runtime_error(vm: &mut VM, s: &str) {
-        match vm.interpret(s) {
-            InterpretResult::Ok(val) => {
-                panic!(
-                    "Expected RuntimeError, found OK({})",
-                    val.unwrap_or(Value::String("empty".to_string()))
-                )
-            }
-            InterpretResult::CompileError => {
-                panic!("Expected RuntimeError, found CompileError")
-            }
-            InterpretResult::RuntimeError => {
-                println!("RuntimeError")
-            }
-        }
+    fn assert_runtime_error(vm: &mut VM, s: &'static str) {
+        vm.interpret(s);
+
+        // match vm.interpret(s) {
+        //     InterpretResult::Ok(val) => {
+        //         panic!(
+        //             "Expected RuntimeError, found OK({})",
+        //             val.unwrap_or(Value::String("empty".to_string()))
+        //         )
+        //     }
+        //     InterpretResult::CompileError => {
+        //         panic!("Expected RuntimeError, found CompileError")
+        //     }
+        //     InterpretResult::RuntimeError => {
+        //         println!("RuntimeError")
+        //     }
+        // }
     }
 
-    fn assert_compile_error(vm: &mut VM, s: &str) {
-        match vm.interpret(s) {
-            InterpretResult::Ok(val) => {
-                panic!(
-                    "Expected RuntimeError, found OK({})",
-                    val.unwrap_or(Value::String("empty".to_string()))
-                )
-            }
-            InterpretResult::CompileError => {
-                println!("CompileError")
-            }
-            InterpretResult::RuntimeError => {
-                panic!("Expected CompileError found RuntimeError")
-            }
-        }
+    fn assert_compile_error(vm: &mut VM, s: &'static str) {
+        vm.interpret(s);
+
+        // match vm.interpret(s) {
+        //     InterpretResult::Ok(val) => {
+        //         panic!(
+        //             "Expected RuntimeError, found OK({})",
+        //             val.unwrap_or(Value::String("empty".to_string()))
+        //         )
+        //     }
+        //     InterpretResult::CompileError => {
+        //         println!("CompileError")
+        //     }
+        //     InterpretResult::RuntimeError => {
+        //         panic!("Expected CompileError found RuntimeError")
+        //     }
+        // }
     }
 
     #[test]
-    fn vm_multiply() {
+    fn vm_multiply() -> Result<()> {
         assert_ok_value(&mut VM::new(), "1*2;", Value::Number(2f64))
     }
     #[test]
-    fn vm_add() {
+    fn vm_add() -> Result<()> {
         assert_ok_value(&mut VM::new(), "1 + 2;", Value::Number(3f64))
     }
     #[test]
-    fn vm_unary() {
-        assert_ok_value(&mut VM::new(), "-1;", Value::Number(-1f64));
+    fn vm_unary() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "-1;", Value::Number(-1f64))
     }
     #[test]
-    fn vm_number() {
-        assert_ok_value(&mut VM::new(), "1;", Value::Number(1f64));
+    fn vm_number() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "1;", Value::Number(1f64))
     }
     #[test]
-    fn vm_grouping() {
-        assert_ok_value(&mut VM::new(), "-(1);", Value::Number(-1f64));
+    fn vm_grouping() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "-(1);", Value::Number(-1f64))
     }
     #[test]
-    fn vm_minus() {
-        assert_ok_value(&mut VM::new(), " 2+5*10;", Value::Number(52f64));
-    }
-
-    #[test]
-    fn vm_bool_t() {
-        assert_ok_value(&mut VM::new(), "true;", Value::Boolean(true));
+    fn vm_minus() -> Result<()> {
+        assert_ok_value(&mut VM::new(), " 2+5*10;", Value::Number(52f64))
     }
 
     #[test]
-    fn vm_bool_f() {
-        assert_ok_value(&mut VM::new(), "false;", Value::Boolean(false));
+    fn vm_bool_t() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "true;", Value::Boolean(true))
+    }
+
+    #[test]
+    fn vm_bool_f() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "false;", Value::Boolean(false))
     }
     #[test]
-    fn vm_bool_not() {
-        assert_ok_value(&mut VM::new(), "!false;", Value::Boolean(true));
+    fn vm_bool_not() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "!false;", Value::Boolean(true))
     }
     #[test]
-    fn vm_nil() {
-        assert_ok_value(&mut VM::new(), "nil;", Value::Nil);
+    fn vm_nil() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "nil;", Value::Nil)
     }
 
     #[test]
     fn vm_not_nil() {
-        assert_runtime_error(&mut VM::new(), "!nil;");
+        assert_runtime_error(&mut VM::new(), "!nil;")
     }
 
     #[test]
     fn vm_not_number() {
-        assert_runtime_error(&mut VM::new(), "!3.14;");
+        assert_runtime_error(&mut VM::new(), "!3.14;")
     }
 
     #[test]
     fn vm_negate_bool() {
-        assert_runtime_error(&mut VM::new(), "-false;");
+        assert_runtime_error(&mut VM::new(), "-false;")
     }
     #[test]
     fn vm_negate_nil() {
-        assert_runtime_error(&mut VM::new(), "-nil;");
+        assert_runtime_error(&mut VM::new(), "-nil;")
     }
 
     #[test]
-    fn vm_greater() {
+    fn vm_greater() -> Result<()> {
         assert_ok_value(&mut VM::new(), "2 > 1;", Value::Boolean(true));
-        assert_ok_value(&mut VM::new(), "2 >= 1;", Value::Boolean(true));
+        assert_ok_value(&mut VM::new(), "2 >= 1;", Value::Boolean(true))
     }
 
     #[test]
-    fn vm_less() {
+    fn vm_less() -> Result<()> {
         assert_ok_value(&mut VM::new(), "2 < 1;", Value::Boolean(false));
-        assert_ok_value(&mut VM::new(), "2 <= 1;", Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), "2 <= 1;", Value::Boolean(false))
     }
     #[test]
-    fn vm_equal() {
-        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true));
-    }
-
-    #[test]
-    fn vm_equal_fail() {
-        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true));
+    fn vm_equal() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
     }
 
     #[test]
-    fn vm_str_eval() {
-        assert_ok_value(&mut VM::new(), r#""A";"#, Value::String("A".to_string()));
+    fn vm_equal_fail() -> Result<()> {
+        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
     }
 
     #[test]
-    fn vm_str_compare() {
+    fn vm_str_eval() -> Result<()> {
+        assert_ok_value(&mut VM::new(), r#""A";"#, Value::String("A".to_string()))
+    }
+
+    #[test]
+    fn vm_str_compare() -> Result<()> {
         assert_ok_value(&mut VM::new(), r#""A" == "A";"#, Value::Boolean(true));
-        assert_ok_value(&mut VM::new(), r#""A" == "B";"#, Value::Boolean(false));
+        assert_ok_value(&mut VM::new(), r#""A" == "B";"#, Value::Boolean(false))
     }
 
     #[test]
-    fn vm_add_str() {
+    fn vm_add_str() -> Result<()> {
         assert_ok_value(
             &mut VM::new(),
             r#""A" + "b";"#,
             Value::String("Ab".to_string()),
-        );
+        )
     }
 
     #[test]
     fn vm_add_distinct_types() {
-        assert_runtime_error(&mut VM::new(), r#""A" + 3.1;"#);
+        assert_runtime_error(&mut VM::new(), r#""A" + 3.1;"#)
     }
 
     #[test]
     fn vm_add_distinct_types_2() {
-        assert_runtime_error(&mut VM::new(), r#"3.1 +  "A" ;"#);
+        assert_runtime_error(&mut VM::new(), r#"3.1 +  "A" ;"#)
     }
 
     #[test]
-    fn vm_print_expr() {
+    fn vm_print_expr() -> Result<()> {
         assert_ok_value(
             &mut VM::new(),
             "print 1 + 2;",
             Value::String("Ab".to_string()),
-        );
+        )
     }
     #[test]
-    fn vm_global_get() {
+    fn vm_global_get() -> Result<()> {
         assert_ok_value(
             &mut VM::new(),
             r#"
@@ -537,11 +643,11 @@ mod tests {
         print breakfast;
         "#,
             Value::String("beignets with cafe au lait".to_string()),
-        );
+        )
     }
 
     #[test]
-    fn vm_global_set() {
+    fn vm_global_set() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -551,7 +657,9 @@ breakfast = breakfast + " with " +   beverage ;
 print breakfast;
 breakfast;
         "#,
-        );
+        )?;
+
+        Ok(())
     }
 
     #[test]
@@ -689,5 +797,33 @@ print i;
 }
         "#,
         );
+    }
+
+    #[test]
+    fn vm_function() {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun sum(a,b,c) {
+    return a + b +c;
+}
+print 4 + sum(5,6,7);
+        "#,
+        );
+    }
+
+    #[test]
+    fn vm_fibonacci() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+fun fib(n) {
+    if (n < 2) return n;
+    return fib(n-2) +  fib(n-1);
+}
+print fib(3);
+        "#,
+        )
     }
 }
