@@ -46,7 +46,7 @@ impl Compiler {
     //         scope_depth: 0,
     //     })
     // }
-    pub fn new2(mut func: ObjectFunction) -> Box<Self> {
+    pub fn new2(func: ObjectFunction) -> Box<Self> {
         const INIT: Option<Local> = None;
 
         // Slot '0' is claimed by VM internal usage

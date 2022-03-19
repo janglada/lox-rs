@@ -56,7 +56,7 @@ impl Chunk {
                     file.write(&Chunk::size_to_bytes(str_bytes.len()));
                     file.write(str_bytes);
                 }
-                Value::Function(func) => {
+                Value::Function(_func) => {
                     todo!("serialize funtcion to bytes");
                 }
             }
@@ -346,9 +346,9 @@ mod tests {
     use crate::chunk::Chunk;
     use crate::opcode::Opcode;
     use crate::value::Value;
-    use crate::vm::VM;
+    
     use std::fs::File;
-    use std::io;
+    
     use std::io::Write;
 
     #[test]

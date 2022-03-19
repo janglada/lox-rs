@@ -9,9 +9,9 @@ use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 use miette::NamedSource;
-use std::borrow::Borrow;
+
 use std::io::Write;
-use std::ops::{AddAssign, SubAssign};
+
 use std::{io, mem};
 
 #[derive(Debug)]
@@ -620,7 +620,7 @@ impl<'a> Parser<'a> {
         let compiler = self.pop_compiler();
         let mut function = compiler.function;
         let v = Value::Function(&mut *function);
-        &function.emit_constant(v, self.previous.line);
+        let _ = &function.emit_constant(v, self.previous.line);
     }
 
     pub fn argument_list(&mut self) -> u8 {

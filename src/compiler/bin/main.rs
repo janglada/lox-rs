@@ -1,7 +1,7 @@
-use clap::{arg, command, Command};
-use rox::chunk::{Chunk, WritableChunk};
-use rox::compiler::Compiler;
-use rox::vm::InterpretResult;
+use clap::{arg, command};
+
+
+
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
@@ -36,7 +36,7 @@ fn main() {
     }
 }
 
-fn compile_file(path: &String, write: &mut Box<dyn Write>) {
+fn compile_file(path: &String, _write: &mut Box<dyn Write>) {
     match File::open(path) {
         // The file is open (no error).
         Ok(mut file) => {

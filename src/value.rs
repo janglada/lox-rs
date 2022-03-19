@@ -38,14 +38,14 @@ impl Value {
 
     pub fn is_object(&self) -> bool {
         match self {
-            Value::Function(s) => true,
+            Value::Function(_s) => true,
             _ => false,
         }
     }
 
     pub fn is_function(&self) -> bool {
         match self {
-            Value::Function(s) => true,
+            Value::Function(_s) => true,
             _ => false,
         }
     }

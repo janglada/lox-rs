@@ -1,4 +1,4 @@
-use crate::chunk::{Chunk, ChunkOpCodeReader};
+use crate::chunk::{ChunkOpCodeReader};
 
 use crate::error::LoxRuntimeError;
 use crate::function::ObjectFunction;
@@ -7,8 +7,8 @@ use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
-use miette::{Diagnostic, IntoDiagnostic, Report, Result};
-use std::borrow::{Borrow, BorrowMut};
+use miette::{IntoDiagnostic, Result};
+use std::borrow::{Borrow};
 use std::collections::HashMap;
 
 pub struct CallFrame {
@@ -108,7 +108,7 @@ impl VM {
         //     let instruction =
         // })
 
-        if let Some(frame) = self.frames.last() {
+        if let Some(_frame) = self.frames.last() {
             // unsafe { (*frame.function).chunk }
         }
         eprintln!("Runtime error:{}\n", msg);
@@ -219,7 +219,7 @@ impl VM {
         // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
         // let mut op_code_iter = chunk.op_codes.iter();
-        while let Some((ip, c)) = op_code_iter.next() {
+        while let Some((_ip, c)) = op_code_iter.next() {
             match c {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.constants.get(*idx).unwrap();
@@ -404,7 +404,7 @@ impl VM {
                 //     }
                 // }
                 Opcode::OpReturn => {
-                    let result: Value = self.stack.pop();
+                    let _result: Value = self.stack.pop();
                     self.frames.pop();
                     if self.frames.is_empty() {
                         self.stack.pop();
@@ -426,9 +426,9 @@ impl VM {
 mod tests {
 
     use crate::value::Value;
-    use crate::vm::{InterpretResult, VM};
+    use crate::vm::{VM};
     use miette::{
-        GraphicalReportHandler, GraphicalTheme, NamedSource, NarratableReportHandler, Result,
+        GraphicalReportHandler, GraphicalTheme, Result,
     };
     fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
         // InterpretResult::Ok(val) => {
@@ -445,7 +445,7 @@ mod tests {
 
         if let Err(err) = vm.interpret(s) {
             let mut out = String::new();
-            let fmt = GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
+            let _fmt = GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
                 .with_width(80)
                 .render_report(&mut out, err.as_ref())
                 .unwrap();
@@ -457,7 +457,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_ok_value(vm: &mut VM, s: &'static str, expected_value: Value) -> Result<()> {
+    fn assert_ok_value(vm: &mut VM, s: &'static str, _expected_value: Value) -> Result<()> {
         vm.interpret(s)
 
         // match vm.interpret(s) {
