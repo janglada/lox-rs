@@ -507,14 +507,13 @@ impl<'a> Parser<'a> {
         //     return Ok(&mut self.compiler.function);
         // }
         let res = &self.result;
-        match res {
-            None => {
-                self.compiler
-                    .function
-                    .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
-                Ok(&mut self.compiler.function)
-            }
+        self.compiler
+            .function
+            .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+
+        match res {
+            None => Ok(&mut self.compiler.function),
             Some(err) => Err(LoxCompileError {
                 src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
                 bad_bit: (err.start, err.len).into(),
@@ -534,7 +533,8 @@ impl<'a> Parser<'a> {
 
         let can_assign = *precedence <= Precedence::Assigment;
         if prefix_rule.is_none() {
-            self.error("Expect expression")
+            self.error("Expect expression");
+            return;
         } else {
             prefix_rule.unwrap()(self, can_assign);
         }
@@ -638,6 +638,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.consume(TokenType::RightParen, "Expect ')' after arguments");
+        dbg!(count);
         count
     }
 

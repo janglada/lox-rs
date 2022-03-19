@@ -61,12 +61,14 @@ impl VM {
                 Err(err).into_diagnostic()
             }
             Ok(function) => {
-                self.frames.push(CallFrame {
-                    function,
-                    ip: 0,
-                    value_stack_pos: 0,
-                });
-                self.frame_count += 1;
+                self.stack.push(Value::Function(function));
+                self.call(function, &0);
+                // self.frames.push(CallFrame {
+                //     function,
+                //     ip: 0,
+                //     value_stack_pos: 0,
+                // });
+                // self.frame_count += 1;
                 self.run()
             }
         };
@@ -109,7 +111,7 @@ impl VM {
         if let Some(frame) = self.frames.last() {
             // unsafe { (*frame.function).chunk }
         }
-        eprintln!("Runtime error TODO{}", msg);
+        eprintln!("Runtime error:{}\n", msg);
     }
 
     pub fn pop_operand_as_number(&mut self) -> Result<f64> {
@@ -209,7 +211,8 @@ impl VM {
     ///
     ///
     pub fn run(&mut self) -> Result<()> {
-        let mut frame = &mut self.frames[self.frame_count - 1];
+        // let mut frame = &mut self.frames[self.frame_count - 1];
+        let mut frame = self.frames.last_mut().unwrap();
         let frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
         let mut chunk = unsafe { &(*frame.function).chunk };
@@ -250,7 +253,7 @@ impl VM {
                         Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
                         _ => {
                             self.runtime_error("Operands must be of same type");
-                            return Err(LoxRuntimeError::new())?;
+                            return Err(LoxRuntimeError::new().into());
                         }
                     },
                 },
@@ -322,7 +325,7 @@ impl VM {
                         }
                         None => {
                             self.runtime_error(format!("Undefined variable {}", name).as_str());
-                            return Err(LoxRuntimeError::new())?;
+                            return Err(LoxRuntimeError::new().into());
                         }
                     }
                 }
@@ -336,7 +339,7 @@ impl VM {
 
                     if !self.globals.contains_key(name) {
                         self.runtime_error(format!("Undefined variable {}", name).as_str());
-                        return Err(LoxRuntimeError::new())?;
+                        return Err(LoxRuntimeError::new().into());
                     } else {
                         let v = self.stack.peek(0).borrow().clone();
                         self.globals.insert(name.to_string(), v);
@@ -382,7 +385,7 @@ impl VM {
                 Opcode::OpCall(num_args) => {
                     // let mut v = self.stack.peek_mut((*num_args) as usize);
                     if !self.call_value((*num_args) as usize, num_args) {
-                        return Err(LoxRuntimeError::new())?;
+                        return Err(LoxRuntimeError::new().into());
                     } else {
                         frame = self.frames.last_mut().unwrap();
                         chunk = unsafe { &(*frame.function).chunk };
@@ -447,7 +450,8 @@ mod tests {
                 .render_report(&mut out, err.as_ref())
                 .unwrap();
 
-            println!("{}", out)
+            println!("{}", out);
+            return Err(err);
         }
 
         Ok(())
@@ -473,28 +477,18 @@ mod tests {
         //     }
         // }
     }
-
-    fn assert_runtime_error(vm: &mut VM, s: &'static str) {
-        vm.interpret(s);
-
-        // match vm.interpret(s) {
-        //     InterpretResult::Ok(val) => {
-        //         panic!(
-        //             "Expected RuntimeError, found OK({})",
-        //             val.unwrap_or(Value::String("empty".to_string()))
-        //         )
-        //     }
-        //     InterpretResult::CompileError => {
-        //         panic!("Expected RuntimeError, found CompileError")
-        //     }
-        //     InterpretResult::RuntimeError => {
-        //         println!("RuntimeError")
-        //     }
-        // }
+    fn assert_runtime_error(vm: &mut VM, s: &'static str) -> Result<(), &'static str> {
+        match vm.interpret(s) {
+            Ok(_) => Err("Expected a runtime Error"),
+            Err(_) => Ok(()),
+        }
     }
 
-    fn assert_compile_error(vm: &mut VM, s: &'static str) {
-        vm.interpret(s);
+    fn assert_compile_error(vm: &mut VM, s: &'static str) -> Result<(), &'static str> {
+        match vm.interpret(s) {
+            Ok(_) => Err("Expected a compile Error"),
+            Err(_) => Ok(()),
+        }
 
         // match vm.interpret(s) {
         //     InterpretResult::Ok(val) => {
@@ -534,7 +528,7 @@ mod tests {
     }
     #[test]
     fn vm_minus() -> Result<()> {
-        assert_ok_value(&mut VM::new(), " 2+5*10;", Value::Number(52f64))
+        assert_ok_value(&mut VM::new(), "print 2+5*10;", Value::Number(52f64))
     }
 
     #[test]
@@ -556,21 +550,21 @@ mod tests {
     }
 
     #[test]
-    fn vm_not_nil() {
+    fn vm_not_nil() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), "!nil;")
     }
 
     #[test]
-    fn vm_not_number() {
+    fn vm_not_number() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), "!3.14;")
     }
 
     #[test]
-    fn vm_negate_bool() {
+    fn vm_negate_bool() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), "-false;")
     }
     #[test]
-    fn vm_negate_nil() {
+    fn vm_negate_nil() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), "-nil;")
     }
 
@@ -616,12 +610,12 @@ mod tests {
     }
 
     #[test]
-    fn vm_add_distinct_types() {
+    fn vm_add_distinct_types() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), r#""A" + 3.1;"#)
     }
 
     #[test]
-    fn vm_add_distinct_types_2() {
+    fn vm_add_distinct_types_2() -> Result<(), &'static str> {
         assert_runtime_error(&mut VM::new(), r#"3.1 +  "A" ;"#)
     }
 
@@ -663,7 +657,7 @@ breakfast;
     }
 
     #[test]
-    fn vm_local_set_duplicate() {
+    fn vm_local_set_duplicate() -> Result<(), &'static str> {
         assert_compile_error(
             &mut VM::new(),
             r#"
@@ -672,11 +666,11 @@ breakfast;
     var a = "second"
 }
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_local_set1() {
+    fn vm_local_set1() -> Result<()> {
         assert_ok_value(
             &mut VM::new(),
             r#"
@@ -688,10 +682,10 @@ breakfast;
 }
         "#,
             Value::Nil,
-        );
+        )
     }
     #[test]
-    fn vm_local_set_2() {
+    fn vm_local_set_2() -> Result<()> {
         assert_ok_value(
             &mut VM::new(),
             r#"
@@ -705,11 +699,11 @@ breakfast;
 }
         "#,
             Value::Nil,
-        );
+        )
     }
 
     #[test]
-    fn vm_if_stmt() {
+    fn vm_if_stmt() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -722,11 +716,11 @@ if (true) {
 }
 print "4";
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_if_else_stmt() {
+    fn vm_if_else_stmt() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -738,11 +732,11 @@ if (false) {
 }
 print "4";
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_logical_and() {
+    fn vm_logical_and() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -753,10 +747,10 @@ a and b;
 
 
         "#,
-        );
+        )
     }
     #[test]
-    fn vm_logical_or() {
+    fn vm_logical_or() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -767,11 +761,11 @@ print a or b;
 
 
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_while() {
+    fn vm_while() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -781,11 +775,11 @@ while(a < 3) {
     a =  a + 1;
 }
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_for() {
+    fn vm_for() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
@@ -796,21 +790,21 @@ print i;
 
 }
         "#,
-        );
+        )
     }
 
     #[test]
-    fn vm_function() {
+    fn vm_function() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
 
-fun sum(a,b,c) {
-    return a + b +c;
+fun square(x) {
+    return x*x;
 }
-print 4 + sum(5,6,7);
+print square(2);
         "#,
-        );
+        )
     }
 
     #[test]
