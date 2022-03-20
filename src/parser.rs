@@ -623,7 +623,7 @@ impl<'a> Parser<'a> {
         let compiler = self.pop_compiler();
         let mut function = compiler.function;
         let v = Value::Function(&mut *function);
-        let _ = &function.emit_constant(v, self.previous.line);
+        let _ = &self.compiler.function.emit_constant(v, self.previous.line);
     }
 
     ///

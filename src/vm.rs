@@ -163,8 +163,8 @@ impl VM {
     // }
 
     fn call_value(&mut self, peek_pos: usize, arg_count: &u8) -> bool {
-        let callee1 = self.stack.peek_mut(peek_pos - 1);
-        let callee = self.stack.peek_mut(peek_pos + 2);
+        // let callee1 = self.stack.peek_mut(peek_pos - 1);
+        let callee = self.stack.peek_mut(peek_pos);
         if callee.is_object() {
             match callee {
                 Value::Function(func) => {
@@ -796,7 +796,19 @@ print i;
         "#,
         )
     }
+    #[test]
+    fn vm_function_compile() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
 
+fun one() {
+    return 1;
+}
+
+        "#,
+        )
+    }
     #[test]
     fn vm_function() -> Result<()> {
         assert_ok(

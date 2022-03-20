@@ -19,7 +19,7 @@ pub struct Compiler {
     pub(crate) function: Box<ObjectFunction>,
     // scope
     pub(crate) locals: ArrayVec<Local, 256>,
-    pub(crate) local_count: usize,
+
     pub(crate) scope_depth: isize,
 }
 
@@ -60,7 +60,6 @@ impl Compiler {
             enclosing: None,
             function: Box::new(func),
             locals,
-            local_count: 1,
             scope_depth: 0,
         })
     }
