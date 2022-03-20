@@ -1,4 +1,4 @@
-use crate::chunk::{ChunkOpCodeReader};
+use crate::chunk::ChunkOpCodeReader;
 
 use crate::error::LoxRuntimeError;
 use crate::function::ObjectFunction;
@@ -8,7 +8,7 @@ use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
 use miette::{IntoDiagnostic, Result};
-use std::borrow::{Borrow};
+use std::borrow::Borrow;
 use std::collections::HashMap;
 
 pub struct CallFrame {
@@ -163,7 +163,8 @@ impl VM {
     // }
 
     fn call_value(&mut self, peek_pos: usize, arg_count: &u8) -> bool {
-        let callee = self.stack.peek_mut(peek_pos);
+        let callee1 = self.stack.peek_mut(peek_pos - 1);
+        let callee = self.stack.peek_mut(peek_pos + 2);
         if callee.is_object() {
             match callee {
                 Value::Function(func) => {
@@ -222,7 +223,7 @@ impl VM {
         while let Some((_ip, c)) = op_code_iter.next() {
             match c {
                 Opcode::OpConstant(idx) => {
-                    let const_val = chunk.constants.get(*idx).unwrap();
+                    let const_val = chunk.read_constant(*idx).unwrap();
                     self.stack.push(const_val.borrow().clone());
                     // println!("const val {}", const_val);
                 }
@@ -308,8 +309,10 @@ impl VM {
                         .as_string()
                         .ok()
                         .unwrap();
+
                     self.globals
                         .insert(name.to_string(), self.stack.peek(0).borrow().clone());
+                    self.stack.pop();
                 }
 
                 Opcode::OpGetGlobal(index) => {
@@ -319,6 +322,7 @@ impl VM {
                         .as_string()
                         .ok()
                         .unwrap();
+
                     match self.globals.get(name) {
                         Some(value) => {
                             self.stack.push(value.borrow().clone());
@@ -391,7 +395,6 @@ impl VM {
                         chunk = unsafe { &(*frame.function).chunk };
                         // for c in &chunk.op_codes
                         op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
-                        break;
                     }
                 }
 
@@ -426,10 +429,8 @@ impl VM {
 mod tests {
 
     use crate::value::Value;
-    use crate::vm::{VM};
-    use miette::{
-        GraphicalReportHandler, GraphicalTheme, Result,
-    };
+    use crate::vm::VM;
+    use miette::{GraphicalReportHandler, GraphicalTheme, Result};
     fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
         // InterpretResult::Ok(val) => {
         //
@@ -649,7 +650,6 @@ var beverage  = "cafe au lait";
 var breakfast = "beignets";
 breakfast = breakfast + " with " +   beverage ;
 print breakfast;
-breakfast;
         "#,
         )?;
 
@@ -678,7 +678,11 @@ breakfast;
     var a = "outer";
     {
         var a =  "inner";
+        print "INNER A:";
+        print a;
     }
+    print "OUTER A:";
+    print a;
 }
         "#,
             Value::Nil,
@@ -798,11 +802,11 @@ print i;
         assert_ok(
             &mut VM::new(),
             r#"
-
+print "HELLO";
 fun square(x) {
     return x*x;
 }
-print square(2);
+print square(3);
         "#,
         )
     }

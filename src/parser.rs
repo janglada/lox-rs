@@ -122,8 +122,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    ///
+    ///
+    ///
     fn fun_declaration(&mut self) {
-        let global = self.parse_variable("Epect function name");
+        let global = self.parse_variable("Expect function name");
         self.mark_initialized();
         self.function(FunctionType::Function);
         self.define_variable(global, self.previous.line);
@@ -623,6 +626,9 @@ impl<'a> Parser<'a> {
         let _ = &function.emit_constant(v, self.previous.line);
     }
 
+    ///
+    ///
+    ///
     pub fn argument_list(&mut self) -> u8 {
         let mut count = 0u8;
         if !self.check(TokenType::RightParen) {

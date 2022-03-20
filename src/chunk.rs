@@ -6,7 +6,13 @@ use std::io::{Read, Write};
 #[derive(Debug, Clone)]
 pub struct Chunk {
     pub op_codes: Vec<Opcode>,
-    pub constants: Vec<Value>,
+    constants: Vec<Value>,
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Chunk::new()
+    }
 }
 
 impl Chunk {
@@ -346,9 +352,9 @@ mod tests {
     use crate::chunk::Chunk;
     use crate::opcode::Opcode;
     use crate::value::Value;
-    
+
     use std::fs::File;
-    
+
     use std::io::Write;
 
     #[test]
