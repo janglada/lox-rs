@@ -805,6 +805,7 @@ print i;
 fun one() {
     return 1;
 }
+print one();
 
         "#,
         )
