@@ -234,7 +234,7 @@ impl Chunk {
     }
     ///
     ///
-    fn disassemble_instruction(&mut self, offset: usize, writer: &mut dyn Write) -> usize {
+    fn disassemble_instruction(&self, offset: usize, writer: &mut dyn Write) -> usize {
         write!(writer, "{:04} ", offset);
         let opcode = self.op_codes.get(offset).unwrap();
         let code = match opcode {
@@ -283,7 +283,11 @@ impl Chunk {
             Opcode::OpCall(args) => {
                 self.byte_instruction("OP_CALL", offset, (*args) as usize, writer)
             }
-            _ => offset + 1,
+            _ => {
+                eprintln!("Unhandled opcode {:?}", opcode);
+
+                offset + 1
+            }
         };
 
         writer.flush();
@@ -292,24 +296,24 @@ impl Chunk {
     }
 
     fn simple_instruction(name: &str, offset: usize, writer: &mut dyn Write) -> usize {
-        writeln!(writer, "{: <12}", name);
+        writeln!(writer, "{: <20}", name);
         offset + 1
     }
 
     fn constant_instruction(
-        &mut self,
+        &self,
         name: &str,
         offset: usize,
         const_idx: usize,
         writer: &mut dyn Write,
     ) -> usize {
         let value = self.constants.get(const_idx).unwrap();
-        writeln!(writer, "{: <12} {} '{}' ", name, const_idx, value);
+        writeln!(writer, "{: <20} {: <5} '{}' ", name, const_idx, value);
         offset + 1
     }
 
     fn byte_instruction(
-        &mut self,
+        &self,
         name: &str,
         offset: usize,
         _const_idx: usize,
@@ -318,14 +322,14 @@ impl Chunk {
         let op_code = self.op_codes.get(offset).unwrap();
         match op_code {
             Opcode::OpGetLocal(idx) => {
-                writeln!(writer, "{: <12} {}  ", name, idx);
+                writeln!(writer, "{: <20} {: <5}  ", name, idx);
             }
             Opcode::OpSetLocal(idx) => {
-                writeln!(writer, "{: <12} {}  ", name, idx);
+                writeln!(writer, "{: <20} {: <5}  ", name, idx);
             }
 
             Opcode::OpCall(num_args) => {
-                writeln!(writer, "{: <12} {}  ", name, num_args);
+                writeln!(writer, "{: <20} {: <5}  ", name, num_args);
             }
             _ => {
                 panic!("INVALID")
@@ -344,7 +348,7 @@ impl Chunk {
     ) -> usize {
         writeln!(
             writer,
-            "{: <12} {} -> {}",
+            "{: <20} {: <5} -> {}",
             name,
             offset,
             offset as i32 + 1 + sign as i32 * (*jump as i32)
