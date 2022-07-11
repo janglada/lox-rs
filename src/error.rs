@@ -1,11 +1,11 @@
+use miette::NamedSource;
 use miette::{Diagnostic, SourceSpan};
-use miette::{NamedSource};
 use thiserror::Error;
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("oops!")]
 #[diagnostic(
-    code(oops::my::bad),
+    code(oops::lox::compileError),
     url(docsrs),
     help("try doing it better next time?")
 )]
@@ -22,7 +22,7 @@ pub struct LoxCompileError {
 #[derive(Error, Debug, Diagnostic)]
 #[error("oops!")]
 #[diagnostic(
-    code(oops::my::bad),
+    code(oops::lox::runtimeError),
     url(docsrs),
     help("try doing it better next time?")
 )]
