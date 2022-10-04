@@ -21,15 +21,16 @@ pub struct LoxCompileError {
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("oops!")]
-#[diagnostic(
-    code(oops::lox::runtimeError),
-    url(docsrs),
-    help("try doing it better next time?")
-)]
+#[diagnostic(code(oops::lox::runtimeError), help("try doing it better next time?"))]
 pub struct LoxRuntimeError {}
 
 impl LoxRuntimeError {
-    pub fn new() -> Self {
+    pub fn new(msg: &str) -> Self {
         LoxRuntimeError {}
     }
 }
+
+#[derive(Error, Debug, Diagnostic)]
+#[error("Unexpected type!")]
+#[diagnostic(code(oops::lox::runtimeError), help("try doing it better next time?"))]
+pub struct WrongTypeEroor {}

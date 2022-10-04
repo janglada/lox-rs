@@ -231,10 +231,10 @@ impl<'a> Parser<'a> {
             } else {
                 match &token1.token_type {
                     TokenType::Identifier(name1) => match &token2.token_type {
-                        TokenType::Identifier(name2) => return name1 == name2,
-                        _ => return false,
+                        TokenType::Identifier(name2) => name1 == name2,
+                        _ => false,
                     },
-                    _ => return false,
+                    _ => false,
                 }
             }
         } else {
@@ -622,7 +622,7 @@ impl<'a> Parser<'a> {
 
         let compiler = self.pop_compiler();
         let mut function = compiler.function;
-        let v = Value::Function(&mut *function);
+        let v = Value::Function(*function);
         let _ = &self.compiler.function.emit_constant(v, self.previous.line);
     }
 

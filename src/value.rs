@@ -8,7 +8,7 @@ pub enum Value {
     Nil,
     Number(f64),
     String(String),
-    Function(*mut ObjectFunction),
+    Function(ObjectFunction),
 }
 
 impl Value {
@@ -71,11 +71,11 @@ impl Value {
         }
     }
 
-    pub fn as_function(&self) -> Result<&mut ObjectFunction, &str> {
+    pub fn as_function(&self) -> Result<ObjectFunction, &str> {
         match self {
             Value::Function(objFn) => {
-                let x = unsafe { &mut (*(*objFn)) };
-                Ok(x)
+                //   let x = unsafe { &mut (*(*objFn)) };
+                Ok(objFn.clone())
             }
             _ => Err("Must be a obj string"),
         }
@@ -99,8 +99,8 @@ impl Display for Value {
                 write!(f, "{}", s)
             }
             Value::Function(obj) => {
-                let name = unsafe { &(*(*obj)).name };
-                write!(f, "<fn {}>", name)
+                // let name = unsafe { &(*(*obj)).name };
+                write!(f, "<fn {}>", obj.name)
             }
         }
     }

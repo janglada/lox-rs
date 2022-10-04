@@ -113,7 +113,7 @@ pub fn number(parser: &mut Parser, _can_assign: bool) {
 pub fn string(parser: &mut Parser, _can_assign: bool) {
     match &parser.previous.token_type {
         TokenType::String(str) => {
-            dbg!(str);
+            //dbg!(str);
             parser
                 .compiler
                 .function

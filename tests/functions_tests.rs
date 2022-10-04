@@ -8,16 +8,37 @@ mod tests {
     use miette::{IntoDiagnostic, Result};
     use rox::value::Value;
     use rox::vm::VM;
+
+    #[test]
+    fn vm_function_simple_compile() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun one(a) {
+    return a;
+}
+print one(1);
+
+
+        "#,
+        )
+    }
+
     #[test]
     fn vm_function_compile() -> Result<()> {
         assert_ok(
             &mut VM::new(),
             r#"
 
-fun one() {
-    return 1;
+fun one(a) {
+    var b = a + 200;
+    var c = b + 300;
+    return c;
 }
-print one();
+one(100);
+print "A";
+
 
         "#,
         )
@@ -31,7 +52,8 @@ print "HELLO";
 fun square(x) {
     return x*x;
 }
-print square(3);
+var sq = square(3);
+print sq;
         "#,
         )
     }
