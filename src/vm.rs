@@ -1,4 +1,6 @@
+#![feature(backtrace)]
 use crate::chunk::ChunkOpCodeReader;
+use std::backtrace::Backtrace;
 
 use crate::error::LoxRuntimeError;
 use crate::function::ObjectFunction;
@@ -7,7 +9,7 @@ use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
-use miette::{IntoDiagnostic, Result};
+use miette::{Error, IntoDiagnostic, Report, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
@@ -107,36 +109,62 @@ impl VM {
     fn runtime_error<T>(&mut self, msg: &str) -> Result<T> {
         //  panic!("{}", msg);
 
-        if let Some(_frame) = self.frames.last() {
-            // unsafe { (*frame.function).chunk }
+        // if let Some(_frame) = self.frames.last() {
+        //     // unsafe { (*frame.function).chunk }
+        // }
+        // eprintln!("Runtime error:{}\n", msg);
+        unsafe {
+            println!("Custom backtrace: {}", Backtrace::force_capture());
         }
-        eprintln!("Runtime error:{}\n", msg);
-
+        // Err(Report::new(msg.to_string()))
         Err(LoxRuntimeError::new(msg).into())
+    }
+
+    fn wrong_type_error<T>(&mut self, msg: &str) -> Result<T> {
+        // eprintln!("Runtime error:{}\n", msg);
+
+        // Err(Report::new(msg.to_string()))
+        unsafe {
+            println!("Custom backtrace: {}", Backtrace::force_capture());
+        }
+        Err(Error::msg(msg.to_string()))?
     }
 
     pub fn pop_operand_as_number(&mut self) -> Result<f64> {
         if !self.stack.peek(0).is_number() {
-            return self.runtime_error("Operand must be numbers");
+            return self.wrong_type_error("Operand must be numbers");
             //  Err(LoxRuntimeError::new("Operand must be numbers"))?;
         }
         //let p = self.stack.peek(0).is_number();
         Ok(*self.stack.pop().as_number().unwrap())
     }
 
+    pub fn unchecked_pop_operand_as_numbers(&mut self) -> Result<(f64, f64)> {
+        let b = *self.stack.pop().as_number().unwrap();
+        let a = *self.stack.pop().as_number().unwrap();
+        Ok((a, b))
+    }
+
     pub fn pop_operand_as_numbers(&mut self) -> Result<(f64, f64)> {
         let op1 = self.stack.peek(0);
         let op2 = self.stack.peek(1);
         if !op1.is_number() || !op2.is_number() {
-            return self.runtime_error("Operand must be numbers");
+            return self.wrong_type_error("Operand must be numbers");
         }
         let b = *self.stack.pop().as_number().unwrap();
         let a = *self.stack.pop().as_number().unwrap();
         Ok((a, b))
     }
+
+    pub fn unchecked_pop_operand_as_strings(&mut self) -> Result<(String, String)> {
+        let b = self.stack.pop().as_string().unwrap().clone();
+        let a = self.stack.pop().as_string().unwrap().clone();
+        Ok((a, b))
+    }
+
     pub fn pop_operand_as_strings(&mut self) -> Result<(String, String)> {
         if !self.stack.peek(0).is_string() || !self.stack.peek(1).is_string() {
-            return self.runtime_error("Operand must be string");
+            return self.wrong_type_error("Operand must be string");
         }
         let b = self.stack.pop().as_string().unwrap().clone();
         let a = self.stack.pop().as_string().unwrap().clone();
@@ -144,7 +172,7 @@ impl VM {
     }
     pub fn pop_operand_as_bool(&mut self) -> Result<bool> {
         if !self.stack.peek(0).is_bool() {
-            return self.runtime_error("Operands must be boolean");
+            return self.wrong_type_error("Operands must be boolean");
 
             // return Err(LoxRuntimeError::new())?;
         }
@@ -253,16 +281,39 @@ impl VM {
                     // }
                 }
 
-                Opcode::OpAdd => match self.pop_operand_as_numbers() {
-                    Ok((a, b)) => self.stack.push(Value::Number(a + b)),
-                    _ => match self.pop_operand_as_strings() {
-                        Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
-                        _ => {
-                            return self.runtime_error("Operands must be of same type");
-                            // return Err(LoxRuntimeError::new().into());
+                // Opcode::OpAdd => match self.pop_operand_as_numbers() {
+                //     Ok((a, b)) => self.stack.push(Value::Number(a + b)),
+                //     _ => match self.pop_operand_as_strings() {
+                //         Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
+                //         _ => {
+                //             return self.wrong_type_error("Operands must be of same type");
+                //             // return Err(LoxRuntimeError::new().into());
+                //         }
+                //     },
+                // }, //        let op1 = self.stack.peek(0);
+                // let op2 = self.stack.peek(1);
+                Opcode::OpAdd => {
+                    let op1 = self.stack.peek(0);
+                    let op2 = self.stack.peek(1);
+                    if op1.is_number() && op2.is_number() {
+                        match self.unchecked_pop_operand_as_numbers() {
+                            Ok((a, b)) => self.stack.push(Value::Number(a + b)),
+                            Err(err) => {
+                                return Err(err);
+                            }
                         }
-                    },
-                },
+                    } else if op1.is_string() && op2.is_string() {
+                        match self.unchecked_pop_operand_as_strings() {
+                            Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    } else {
+                        return self.wrong_type_error(
+                            format!("Addition operation requires operands must be of same type, either number or string. Found operand #1 = {}, operand #2 = {}", op1, op2).as_str());
+                    }
+                }
 
                 Opcode::OPSubtract => match self.pop_operand_as_numbers() {
                     Ok((a, b)) => self.stack.push(Value::Number(a - b)),

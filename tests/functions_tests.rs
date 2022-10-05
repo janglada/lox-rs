@@ -16,9 +16,9 @@ mod tests {
             r#"
 
 fun one(a) {
-    return a;
+    return a + 2;
 }
-print one(1);
+var c =  one(1);
 
 
         "#,

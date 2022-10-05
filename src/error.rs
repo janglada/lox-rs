@@ -1,5 +1,8 @@
-use miette::NamedSource;
-use miette::{Diagnostic, SourceSpan};
+use miette::{Diagnostic, IntoDiagnostic, SourceSpan};
+use miette::{Error, NamedSource};
+
+use std::fmt;
+
 use thiserror::Error;
 
 #[derive(Error, Debug, Diagnostic)]
@@ -21,7 +24,7 @@ pub struct LoxCompileError {
 
 #[derive(Error, Debug, Diagnostic)]
 #[error("oops!")]
-#[diagnostic(code(oops::lox::runtimeError), help("try doing it better next time?"))]
+#[diagnostic(code(oops::lox::runtimeError), help("A runtime error occurred"))]
 pub struct LoxRuntimeError {}
 
 impl LoxRuntimeError {
@@ -30,7 +33,14 @@ impl LoxRuntimeError {
     }
 }
 
-#[derive(Error, Debug, Diagnostic)]
-#[error("Unexpected type!")]
-#[diagnostic(code(oops::lox::runtimeError), help("try doing it better next time?"))]
-pub struct WrongTypeEroor {}
+// #[derive(Error, Debug, Diagnostic)]
+// #[diagnostic(code(oops::lox::runtimeError))]
+// pub struct WrongTypeError {
+//     pub(crate) error: String,
+// }
+//
+// impl WrongTypeError {
+//     pub fn new(label: &str) -> Self {
+//         Error::msg(label)
+//     }
+// }
