@@ -29,26 +29,27 @@ pub fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
     Ok(())
 }
 
-pub fn assert_ok_value(vm: &mut VM, s: &'static str, _expected_value: Value) -> Result<()> {
-    vm.interpret(s)
-
-    // match vm.interpret(s) {
-    //     InterpretResult::Ok(val) => {
-    //         if let Some(r) = val {
-    //             println!("Ok {}", r);
-    //             assert_eq!(expected_value, r)
-    //         } else {
-    //             println!("Ok(empty)");
-    //         }
-    //     }
-    //     InterpretResult::CompileError => {
-    //         panic!("CompileError")
-    //     }
-    //     InterpretResult::RuntimeError => {
-    //         panic!("RuntimeError")
-    //     }
-    // }
+pub fn assert_ok_return_value(vm: &mut VM, s: &str, expected_value: Value) -> Result<()> {
+    // let s = s.as_ref().map(|val| format!("return {}", val));
+    let mut cmd = String::new();
+    cmd.push_str("return ");
+    cmd.push_str(s);
+    return assert_ok_equals(vm, cmd.as_str(), expected_value);
 }
+
+///
+///
+///
+pub fn assert_ok_equals(vm: &mut VM, s: &str, expected_value: Value) -> Result<()> {
+    match vm.interpret(s)? {
+        None => panic!("Test did not return"),
+        Some(v) => {
+            assert_eq!(expected_value, v);
+            Ok(())
+        }
+    }
+}
+
 pub fn assert_runtime_error(vm: &mut VM, s: &'static str) -> Result<(), &'static str> {
     match vm.interpret(s) {
         Ok(_) => Err("Expected a runtime Error"),

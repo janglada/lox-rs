@@ -4,51 +4,62 @@ mod common;
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{assert_compile_error, assert_ok, assert_ok_value, assert_runtime_error};
+    use crate::common::{
+        assert_compile_error, assert_ok, assert_ok_equals, assert_ok_return_value,
+        assert_runtime_error,
+    };
     use miette::{IntoDiagnostic, Result};
     use rox::value::Value;
     use rox::vm::VM;
     #[test]
     fn vm_multiply() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "1*2;", Value::Number(2f64))
+        assert_ok_return_value(&mut VM::new(), "1*2;", Value::Number(2f64));
+        assert_ok_return_value(&mut VM::new(), "1*2*3;", Value::Number(6f64))
     }
     #[test]
     fn vm_add() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "1 + 2;", Value::Number(3f64))
+        assert_ok_return_value(&mut VM::new(), "1 + 2;", Value::Number(3f64));
+        assert_ok_return_value(&mut VM::new(), "1 + 2 + 3 + 4;", Value::Number(10f64));
+        assert_ok_equals(
+            &mut VM::new(),
+            "var c = 1 + 2 + 3 + 4;\nreturn c;",
+            Value::Number(10f64),
+        )
     }
+
     #[test]
     fn vm_unary() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "-1;", Value::Number(-1f64))
+        assert_ok_return_value(&mut VM::new(), "-1;", Value::Number(-1f64))
     }
     #[test]
     fn vm_number() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "1;", Value::Number(1f64))
+        assert_ok_return_value(&mut VM::new(), "1;", Value::Number(1f64))
     }
     #[test]
     fn vm_grouping() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "-(1);", Value::Number(-1f64))
+        assert_ok_return_value(&mut VM::new(), " -(1);", Value::Number(-1f64))
     }
     #[test]
     fn vm_minus() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "print 2+5*10;", Value::Number(52f64))
+        assert_ok_return_value(&mut VM::new(), " 2+5*10;", Value::Number(52f64))
     }
 
     #[test]
     fn vm_bool_t() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "true;", Value::Boolean(true))
+        assert_ok_return_value(&mut VM::new(), " true;", Value::Boolean(true))
     }
 
     #[test]
     fn vm_bool_f() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "false;", Value::Boolean(false))
+        assert_ok_return_value(&mut VM::new(), " false;", Value::Boolean(false))
     }
     #[test]
     fn vm_bool_not() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "!false;", Value::Boolean(true))
+        assert_ok_return_value(&mut VM::new(), " !false;", Value::Boolean(true))
     }
     #[test]
     fn vm_nil() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "nil;", Value::Nil)
+        assert_ok_return_value(&mut VM::new(), "nil;", Value::Nil)
     }
 
     #[test]
@@ -72,39 +83,39 @@ mod tests {
 
     #[test]
     fn vm_greater() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "2 > 1;", Value::Boolean(true));
-        assert_ok_value(&mut VM::new(), "2 >= 1;", Value::Boolean(true))
+        assert_ok_return_value(&mut VM::new(), "2 > 1;", Value::Boolean(true));
+        assert_ok_return_value(&mut VM::new(), "2 >= 1;", Value::Boolean(true))
     }
 
     #[test]
     fn vm_less() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "2 < 1;", Value::Boolean(false));
-        assert_ok_value(&mut VM::new(), "2 <= 1;", Value::Boolean(false))
+        assert_ok_return_value(&mut VM::new(), "2 < 1;", Value::Boolean(false));
+        assert_ok_return_value(&mut VM::new(), "2 <= 1;", Value::Boolean(false))
     }
     #[test]
     fn vm_equal() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
+        assert_ok_return_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
     }
 
     #[test]
     fn vm_equal_fail() -> Result<()> {
-        assert_ok_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
+        assert_ok_return_value(&mut VM::new(), "2 == 2;", Value::Boolean(true))
     }
 
     #[test]
     fn vm_str_eval() -> Result<()> {
-        assert_ok_value(&mut VM::new(), r#""A";"#, Value::String("A".to_string()))
+        assert_ok_return_value(&mut VM::new(), r#""A";"#, Value::String("A".to_string()))
     }
 
     #[test]
     fn vm_str_compare() -> Result<()> {
-        assert_ok_value(&mut VM::new(), r#""A" == "A";"#, Value::Boolean(true));
-        assert_ok_value(&mut VM::new(), r#""A" == "B";"#, Value::Boolean(false))
+        assert_ok_return_value(&mut VM::new(), r#""A" == "A";"#, Value::Boolean(true));
+        assert_ok_return_value(&mut VM::new(), r#""A" == "B";"#, Value::Boolean(false))
     }
 
     #[test]
     fn vm_add_str() -> Result<()> {
-        assert_ok_value(
+        assert_ok_return_value(
             &mut VM::new(),
             r#""A" + "b";"#,
             Value::String("Ab".to_string()),
@@ -112,31 +123,35 @@ mod tests {
     }
 
     #[test]
-    fn vm_add_distinct_types() -> Result<(), &'static str> {
-        assert_runtime_error(&mut VM::new(), r#""A" + 3.1;"#)
+    fn vm_add_distinct_types() -> Result<()> {
+        assert_ok_return_value(
+            &mut VM::new(),
+            r#""A" + 3.1;"#,
+            Value::String("A3.1".to_string()),
+        )
     }
 
     #[test]
-    fn vm_add_distinct_types_2() -> Result<(), &'static str> {
-        assert_runtime_error(&mut VM::new(), r#"3.1 +  "A" ;"#)
+    fn vm_add_distinct_types_2() -> Result<()> {
+        assert_ok_return_value(
+            &mut VM::new(),
+            r#" 3.1 + "A";"#,
+            Value::String("3.1A".to_string()),
+        )
     }
 
     #[test]
     fn vm_print_expr() -> Result<()> {
-        assert_ok_value(
-            &mut VM::new(),
-            "print 1 + 2;",
-            Value::String("Ab".to_string()),
-        )
+        assert_ok(&mut VM::new(), "print 1 + 2;")
     }
     #[test]
     fn vm_global_get() -> Result<()> {
-        assert_ok_value(
+        assert_ok_equals(
             &mut VM::new(),
             r#"
         var beverage = "cafe au lait";
         var breakfast = "beignets with " + beverage ;
-        print breakfast;
+        return breakfast;
         "#,
             Value::String("beignets with cafe au lait".to_string()),
         )
@@ -172,7 +187,7 @@ print breakfast;
 
     #[test]
     fn vm_local_set1() -> Result<()> {
-        assert_ok_value(
+        assert_ok(
             &mut VM::new(),
             r#"
 {
@@ -186,12 +201,11 @@ print breakfast;
     print a;
 }
         "#,
-            Value::Nil,
         )
     }
     #[test]
     fn vm_local_set_2() -> Result<()> {
-        assert_ok_value(
+        assert_ok(
             &mut VM::new(),
             r#"
 {
@@ -203,7 +217,6 @@ print breakfast;
     }
 }
         "#,
-            Value::Nil,
         )
     }
 

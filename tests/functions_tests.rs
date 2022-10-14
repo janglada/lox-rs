@@ -4,7 +4,10 @@ mod common;
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{assert_compile_error, assert_ok, assert_ok_value, assert_runtime_error};
+    use crate::common::{
+        assert_compile_error, assert_ok, assert_ok_equals, assert_ok_return_value,
+        assert_runtime_error,
+    };
     use miette::{IntoDiagnostic, Result};
     use rox::value::Value;
     use rox::vm::VM;
@@ -31,10 +34,11 @@ var c =  one("1");
             &mut VM::new(),
             r#"
 
-fun sum(a, b, c) {
-    return a + b + c;
+fun sum(a, b) {
+    return a + b;
 }
-print 4 + sum(5, 6, 7);
+var s = sum(5, 6;
+print 4 + s;
 
 
         "#,
@@ -43,23 +47,24 @@ print 4 + sum(5, 6, 7);
 
     #[test]
     fn vm_function_return_string() -> Result<()> {
-        assert_ok(
+        assert_ok_equals(
             &mut VM::new(),
             r#"
 
 fun areWeHavingItYet() {
     return "Yes we are";
 }
-print areWeHavingItYet();
+return areWeHavingItYet();
 
 
         "#,
+            Value::String("Yes we are".to_string()),
         )
     }
 
     #[test]
     fn vm_function_compile() -> Result<()> {
-        assert_ok(
+        assert_ok_equals(
             &mut VM::new(),
             r#"
 
@@ -68,16 +73,17 @@ fun one(a) {
     var c = b + 300;
     return c;
 }
-print one(100);
-print "A";
+return one(100);
+
 
 
         "#,
+            Value::Number(600 as f64),
         )
     }
     #[test]
     fn vm_function() -> Result<()> {
-        assert_ok(
+        assert_ok_equals(
             &mut VM::new(),
             r#"            
 print "HELLO";
@@ -85,30 +91,38 @@ fun square(x) {
     return x*x;
 }
 var sq = square(3);
-print sq;
+return sq;
         "#,
+            Value::Number(9 as f64),
         )
     }
 
     #[test]
     fn vm_fibonacci() -> Result<()> {
-        assert_ok(
+        assert_ok_equals(
             &mut VM::new(),
             r#"
 fun fib(n) {
     print "FIB " + n;
 
     print n < 2;
-    if (n < 2) {
+    if (2 > n) {
         print "RETURNING..." + n ; 
         return n;
     } else {
-        return fib(n-2) +  fib(n-1);
+        let f2 =  fib(n-2);
+        let f1 =  fib(n-1);
+        let a = "FIB (" + n;
+        let b = a + ") =";
+        let c = b + f1 + f2;
+        print c;
+        return f1 + f2;
     }
 }
 
-print   fib(6);
+return   fib(6);
         "#,
+            Value::Number(8 as f64),
         )
     }
 }

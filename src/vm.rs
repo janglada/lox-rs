@@ -1,5 +1,5 @@
 #![feature(backtrace)]
-use crate::chunk::{ChunkOpCodeReader, ChunkWriterTrait};
+use crate::chunk::ChunkOpCodeReader;
 use std::backtrace::Backtrace;
 
 use crate::error::LoxRuntimeError;
@@ -48,7 +48,7 @@ impl VM {
         println!("{}", value)
     }
 
-    pub fn interpret(&mut self, source: &str) -> Result<()> {
+    pub fn interpret(&mut self, source: &str) -> Result<Option<Value>> {
         let mut parser = Parser::new(source);
 
         // let mut function = parser.compile()?;
@@ -279,7 +279,7 @@ impl VM {
     }
     ///
     ///
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<Option<Value>> {
         // let mut frame = &mut self.frames[self.frame_count - 1];
         let mut frame = self.frames.last_mut().unwrap();
         let mut frame_slot = frame.value_stack_pos;
@@ -312,6 +312,7 @@ impl VM {
                 Opcode::OpNegate => {
                     let r = self.pop_operand_as_number().map(|f| {
                         self.stack.push(Value::Number(-f));
+                        Some(Value::Number(-f))
                     });
                     if r.is_err() {
                         return r;
@@ -332,6 +333,7 @@ impl VM {
                 Opcode::OpAdd => {
                     let op1 = self.stack.peek(0);
                     let op2 = self.stack.peek(1);
+
                     if op1.is_number() && op2.is_number() {
                         match self.unchecked_pop_operand_as_numbers() {
                             Ok((a, b)) => self.stack.push(Value::Number(a + b)),
@@ -527,8 +529,8 @@ impl VM {
                     let _result: Value = self.stack.pop();
                     let last_frame = self.frames.pop();
                     if self.frames.is_empty() {
-                        self.stack.pop();
-                        return Ok(());
+                        let retVal = self.stack.pop();
+                        return Ok(Some(_result));
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
@@ -545,6 +547,7 @@ impl VM {
                 }
             }
         }
+        let a = self.stack.peek(0);
         return Err(LoxRuntimeError::new("end program"))?;
     }
 }
