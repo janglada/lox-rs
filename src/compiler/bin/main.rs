@@ -1,7 +1,5 @@
 use clap::{arg, command};
 
-
-
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};

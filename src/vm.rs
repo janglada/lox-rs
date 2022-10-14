@@ -70,8 +70,8 @@ impl VM {
                 //write!(stdout(), s.to_string());
                 // std::io::stdout().flush();
 
-                write!(stdout(), "CALLING FUNCTION {}\n", function.name);
-                function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+                // write!(stdout(), "CALLING FUNCTION {}\n", function.name);
+                // function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
                 self.stack.push(Value::Function(function.clone()));
                 self.call(function, &0, 0);
@@ -174,6 +174,18 @@ impl VM {
         Ok((a, b))
     }
 
+    pub fn unchecked_pop_operand_as_string_and_number(&mut self) -> Result<(f64, String)> {
+        let b = self.stack.pop().as_string().unwrap().clone();
+        let a = self.stack.pop().as_number().unwrap().clone();
+        Ok((a, b))
+    }
+
+    pub fn unchecked_pop_operand_as_number_and_string(&mut self) -> Result<(String, f64)> {
+        let b = self.stack.pop().as_number().unwrap().clone();
+        let a = self.stack.pop().as_string().unwrap().clone();
+        Ok((a, b))
+    }
+
     pub fn pop_operand_as_strings(&mut self) -> Result<(String, String)> {
         if !self.stack.peek(0).is_string() || !self.stack.peek(1).is_string() {
             return self.wrong_type_error("Operand must be string");
@@ -182,6 +194,7 @@ impl VM {
         let a = self.stack.pop().as_string().unwrap().clone();
         Ok((a, b))
     }
+
     pub fn pop_operand_as_bool(&mut self) -> Result<bool> {
         if !self.stack.peek(0).is_bool() {
             return self.wrong_type_error("Operands must be boolean");
@@ -209,12 +222,12 @@ impl VM {
     fn call_value(&mut self, peek_pos: usize, arg_count: &u8, opcode_pos: usize) -> Result<bool> {
         // let callee1 = self.stack.peek_mut(peek_pos - 1);
         let callee = self.stack.peek_mut(peek_pos);
-        println!(
-            "peek_pos {}, arg_count {}, calle {}",
-            peek_pos,
-            arg_count,
-            callee.to_string()
-        );
+        // println!(
+        //     "peek_pos {}, arg_count {}, calle {}",
+        //     peek_pos,
+        //     arg_count,
+        //     callee.to_string()
+        // );
         if callee.is_object() {
             // match callee {
             //     Value::Function(func) => {
@@ -280,12 +293,12 @@ impl VM {
         while let Some((_ip, c)) = op_code_iter.next() {
             let a = c.clone();
 
-            write!(stdout(), "OP CODE {:?}\n", a);
+            // write!(stdout(), "OP CODE {:?}\n", a);
 
-            if counter > 50 {
-                panic!();
-            }
-            counter = counter + 1;
+            // if counter > 50 {
+            //     panic!();
+            // }
+            // counter = counter + 1;
 
             // println!("OP CODE {:?}", a);
             io::stdout().flush().unwrap();
@@ -328,6 +341,20 @@ impl VM {
                         }
                     } else if op1.is_string() && op2.is_string() {
                         match self.unchecked_pop_operand_as_strings() {
+                            Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    } else if op1.is_string() && op2.is_number() {
+                        match self.unchecked_pop_operand_as_string_and_number() {
+                            Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
+                            Err(err) => {
+                                return Err(err);
+                            }
+                        }
+                    } else if op1.is_number() && op2.is_string() {
+                        match self.unchecked_pop_operand_as_number_and_string() {
                             Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
                             Err(err) => {
                                 return Err(err);
@@ -432,11 +459,11 @@ impl VM {
                 }
 
                 Opcode::OpGetLocal(index) => {
-                    println!(
-                        "STACK GET INDEX {}, STACK LEN {}",
-                        *index + frame_slot,
-                        self.stack.len()
-                    );
+                    // println!(
+                    //     "STACK GET INDEX {}, STACK LEN {}",
+                    //     *index + frame_slot,
+                    //     self.stack.len()
+                    // );
 
                     let v = self.stack.get(*index + frame_slot).clone();
                     // self.stack.push(v);
@@ -469,7 +496,7 @@ impl VM {
                 }
 
                 Opcode::OpCall(num_args) => {
-                    println!("OPCALL {}", _ip);
+                    // println!("OPCALL {}", _ip);
                     // let mut v = self.stack.peek_mut((*num_args) as usize);
                     match self.call_value((*num_args) as usize, num_args, _ip) {
                         Ok(success) => {
@@ -510,7 +537,7 @@ impl VM {
                     // for c in &chunk.op_codes
                     op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
                     if let Some(f) = last_frame {
-                        println!("OPCODE POS {}", f.op_code_pos);
+                        // println!("OPCODE POS {}", f.op_code_pos);
                         for i in 0..f.op_code_pos {
                             op_code_iter.next();
                         }

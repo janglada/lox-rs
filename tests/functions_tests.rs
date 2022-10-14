@@ -68,7 +68,7 @@ fun one(a) {
     var c = b + 300;
     return c;
 }
-one(100);
+print one(100);
 print "A";
 
 
@@ -96,10 +96,18 @@ print sq;
             &mut VM::new(),
             r#"
 fun fib(n) {
-    if (n < 2) return n;
-    return fib(n-2) +  fib(n-1);
+    print "FIB " + n;
+
+    print n < 2;
+    if (n < 2) {
+        print "RETURNING..." + n ; 
+        return n;
+    } else {
+        return fib(n-2) +  fib(n-1);
+    }
 }
-print fib(3);
+
+print   fib(6);
         "#,
         )
     }

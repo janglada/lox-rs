@@ -511,7 +511,7 @@ impl<'a> Parser<'a> {
         // }
         let res = &self.result;
 
-        write!(io::stdout(), "{}\n", "CHUNKS");
+        // write!(io::stdout(), "{}\n", "CHUNKS");
 
         // self.compiler
         //     .function
@@ -646,7 +646,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.consume(TokenType::RightParen, "Expect ')' after arguments");
-        dbg!(count);
+        //  dbg!(count);
         count
     }
 
