@@ -232,6 +232,14 @@ impl Chunk {
             offset = self.disassemble_instruction(offset, writer);
         }
     }
+
+    pub(crate) fn disassemble_chunk_constants(&mut self, writer: &mut dyn Write) {
+        write!(writer, "CONSTANTS\n");
+        self.constants.iter().enumerate().for_each(|(i, ct)| {
+            write!(writer, "{} {}\n", i, ct);
+        });
+    }
+
     ///
     ///
     fn disassemble_instruction(&self, offset: usize, writer: &mut dyn Write) -> usize {

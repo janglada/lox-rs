@@ -17,12 +17,12 @@ pub fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
 
     if let Err(err) = vm.interpret(s) {
         let mut out = String::new();
-        let _fmt = GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
+        GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
             .with_width(80)
             .render_report(&mut out, err.as_ref())
             .unwrap();
 
-        println!("{}", out);
+        //println!("{}", out);
         return Err(err);
     }
 

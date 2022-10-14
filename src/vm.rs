@@ -1,5 +1,5 @@
 #![feature(backtrace)]
-use crate::chunk::ChunkOpCodeReader;
+use crate::chunk::{ChunkOpCodeReader, ChunkWriterTrait};
 use std::backtrace::Backtrace;
 
 use crate::error::LoxRuntimeError;
@@ -13,12 +13,13 @@ use miette::{Error, IntoDiagnostic, Report, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
-use std::io::Write;
+use std::io::{stdout, Write};
 
 pub struct CallFrame {
     function: ObjectFunction,
     //  The slots field points into the VM’s value stack at the first slot that this function can use
     value_stack_pos: usize,
+    op_code_pos: usize,
 }
 
 pub struct VM {
@@ -65,8 +66,15 @@ impl VM {
                 Err(err).into_diagnostic()
             }
             Ok(function) => {
+                // println!("The origin is: {function:?}");
+                //write!(stdout(), s.to_string());
+                // std::io::stdout().flush();
+
+                write!(stdout(), "CALLING FUNCTION {}\n", function.name);
+                function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+
                 self.stack.push(Value::Function(function.clone()));
-                self.call(function, &0);
+                self.call(function, &0, 0);
                 // self.frames.push(CallFrame {
                 //     function,
                 //     ip: 0,
@@ -112,22 +120,26 @@ impl VM {
         // if let Some(_frame) = self.frames.last() {
         //     // unsafe { (*frame.function).chunk }
         // }
-        // eprintln!("Runtime error:{}\n", msg);
+
         unsafe {
-            println!("Custom backtrace: {}", Backtrace::force_capture());
+            Err(Error::msg(
+                format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
+            ))?
         }
-        // Err(Report::new(msg.to_string()))
-        Err(LoxRuntimeError::new(msg).into())
     }
 
     fn wrong_type_error<T>(&mut self, msg: &str) -> Result<T> {
         // eprintln!("Runtime error:{}\n", msg);
 
         // Err(Report::new(msg.to_string()))
+        // unsafe {
+        //     println!("Custom backtrace: {}", Backtrace::force_capture());
+        // }
         unsafe {
-            println!("Custom backtrace: {}", Backtrace::force_capture());
+            Err(Error::msg(
+                format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
+            ))?
         }
-        Err(Error::msg(msg.to_string()))?
     }
 
     pub fn pop_operand_as_number(&mut self) -> Result<f64> {
@@ -194,9 +206,15 @@ impl VM {
     //     self.call_value(v, arg_count)
     // }
 
-    fn call_value(&mut self, peek_pos: usize, arg_count: &u8) -> Result<bool> {
+    fn call_value(&mut self, peek_pos: usize, arg_count: &u8, opcode_pos: usize) -> Result<bool> {
         // let callee1 = self.stack.peek_mut(peek_pos - 1);
         let callee = self.stack.peek_mut(peek_pos);
+        println!(
+            "peek_pos {}, arg_count {}, calle {}",
+            peek_pos,
+            arg_count,
+            callee.to_string()
+        );
         if callee.is_object() {
             // match callee {
             //     Value::Function(func) => {
@@ -209,7 +227,7 @@ impl VM {
             //     }
             // }
             if let Ok(mut func) = callee.as_function() {
-                return self.call(&mut func, arg_count);
+                return self.call(&mut func, arg_count, opcode_pos);
             } else {
                 return self.runtime_error("Non callable object");
             };
@@ -221,7 +239,12 @@ impl VM {
     ///
     ///
     ///
-    fn call(&mut self, function: &mut ObjectFunction, arg_count: &u8) -> Result<bool> {
+    fn call(
+        &mut self,
+        function: &mut ObjectFunction,
+        arg_count: &u8,
+        opcode_pos: usize,
+    ) -> Result<bool> {
         if *arg_count != function.arity {
             return self.runtime_error(
                 format!(
@@ -232,9 +255,11 @@ impl VM {
             );
         }
         let p = self.stack.len() - *arg_count as usize - 1;
+        //   println!("value_stack_pos {}", p);
         self.frames.push(CallFrame {
             function: function.clone(),
             value_stack_pos: p,
+            op_code_pos: opcode_pos,
         });
 
         Ok(true)
@@ -244,15 +269,25 @@ impl VM {
     pub fn run(&mut self) -> Result<()> {
         // let mut frame = &mut self.frames[self.frame_count - 1];
         let mut frame = self.frames.last_mut().unwrap();
-        let frame_slot = frame.value_stack_pos;
+        let mut frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
         let mut chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
                                                       // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+
+        let mut counter = 0;
         // let mut op_code_iter = chunk.op_codes.iter();
         while let Some((_ip, c)) = op_code_iter.next() {
             let a = c.clone();
-            println!("OP CODE {:?}", a);
+
+            write!(stdout(), "OP CODE {:?}\n", a);
+
+            if counter > 50 {
+                panic!();
+            }
+            counter = counter + 1;
+
+            // println!("OP CODE {:?}", a);
             io::stdout().flush().unwrap();
             match c {
                 Opcode::OpConstant(idx) => {
@@ -281,17 +316,6 @@ impl VM {
                     // }
                 }
 
-                // Opcode::OpAdd => match self.pop_operand_as_numbers() {
-                //     Ok((a, b)) => self.stack.push(Value::Number(a + b)),
-                //     _ => match self.pop_operand_as_strings() {
-                //         Ok((a, b)) => self.stack.push(Value::String(format!("{}{}", a, b))),
-                //         _ => {
-                //             return self.wrong_type_error("Operands must be of same type");
-                //             // return Err(LoxRuntimeError::new().into());
-                //         }
-                //     },
-                // }, //        let op1 = self.stack.peek(0);
-                // let op2 = self.stack.peek(1);
                 Opcode::OpAdd => {
                     let op1 = self.stack.peek(0);
                     let op2 = self.stack.peek(1);
@@ -445,13 +469,14 @@ impl VM {
                 }
 
                 Opcode::OpCall(num_args) => {
+                    println!("OPCALL {}", _ip);
                     // let mut v = self.stack.peek_mut((*num_args) as usize);
-                    match self.call_value((*num_args) as usize, num_args) {
+                    match self.call_value((*num_args) as usize, num_args, _ip) {
                         Ok(success) => {
                             if success {
                                 frame = self.frames.last_mut().unwrap();
                                 chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; //unsafe { &(*frame.function).chunk };
-                                                                      // for c in &chunk.op_codes
+                                frame_slot = frame.value_stack_pos; // for c in &chunk.op_codes
                                 op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
                             } else {
                                 return self.runtime_error("Could not call function");
@@ -473,16 +498,23 @@ impl VM {
                 // }
                 Opcode::OpReturn => {
                     let _result: Value = self.stack.pop();
-                    self.frames.pop();
+                    let last_frame = self.frames.pop();
                     if self.frames.is_empty() {
                         self.stack.pop();
                         return Ok(());
                     }
-
+                    self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
                     chunk = frame.function.chunk.clone(); // unsafe { &(*frame.function).chunk };
-                                                          // for c in &chunk.op_codes
+
+                    // for c in &chunk.op_codes
                     op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+                    if let Some(f) = last_frame {
+                        println!("OPCODE POS {}", f.op_code_pos);
+                        for i in 0..f.op_code_pos {
+                            op_code_iter.next();
+                        }
+                    }
                 }
             }
         }

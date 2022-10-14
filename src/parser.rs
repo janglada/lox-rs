@@ -511,9 +511,11 @@ impl<'a> Parser<'a> {
         // }
         let res = &self.result;
 
-        self.compiler
-            .function
-            .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
+        write!(io::stdout(), "{}\n", "CHUNKS");
+
+        // self.compiler
+        //     .function
+        //     .disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
         match res {
             None => Ok(&mut self.compiler.function),

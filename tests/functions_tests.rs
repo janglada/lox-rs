@@ -16,9 +16,41 @@ mod tests {
             r#"
 
 fun one(a) {
-    return a + 2;
+    return a + "2";
 }
-var c =  one(1);
+var c =  one("1");
+
+
+        "#,
+        )
+    }
+
+    #[test]
+    fn vm_function_simple_sum() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun sum(a, b, c) {
+    return a + b + c;
+}
+print 4 + sum(5, 6, 7);
+
+
+        "#,
+        )
+    }
+
+    #[test]
+    fn vm_function_return_string() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun areWeHavingItYet() {
+    return "Yes we are";
+}
+print areWeHavingItYet();
 
 
         "#,

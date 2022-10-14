@@ -1,6 +1,7 @@
 use crate::chunk::{Chunk, ChunkWriterTrait};
 use crate::opcode::Opcode;
 use crate::value::Value;
+use std::fmt;
 use std::io::Write;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -9,7 +10,13 @@ pub enum FunctionType {
     Script,
 }
 
-#[derive(Debug, Clone)]
+impl fmt::Display for FunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Clone)]
 pub struct ObjectFunction {
     ftype: FunctionType,
     pub(crate) chunk: Chunk,
@@ -31,6 +38,19 @@ impl ObjectFunction {
 impl PartialEq for ObjectFunction {
     fn eq(&self, other: &Self) -> bool {
         self.arity == other.arity && self.name == other.name && self.ftype == other.ftype
+    }
+}
+
+impl fmt::Debug for ObjectFunction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Object function {}, type= {}, arity ={}, \n chunk = {:?}]",
+            self.name,
+            self.ftype.to_string(),
+            self.arity,
+            self.chunk
+        )
     }
 }
 
@@ -65,7 +85,8 @@ impl ChunkWriterTrait for ObjectFunction {
         self.chunk.add_constant(value)
     }
     fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>) {
-        self.chunk.disassemble_chunk(writer)
+        self.chunk.disassemble_chunk(writer);
+        self.chunk.disassemble_chunk_constants(writer);
     }
 
     fn len(&self) -> usize {
