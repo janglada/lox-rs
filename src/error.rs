@@ -6,12 +6,8 @@ use std::fmt;
 use thiserror::Error;
 
 #[derive(Error, Debug, Diagnostic)]
-#[error("oops!")]
-#[diagnostic(
-    code(oops::lox::compileError),
-    url(docsrs),
-    help("try doing it better next time?")
-)]
+#[diagnostic(code(oops::lox::compileError))]
+#[error("{label}")]
 pub struct LoxCompileError {
     // The Source that we're gonna be printing snippets out of.
     // This can be a String if you don't have or care about file names.
@@ -20,10 +16,12 @@ pub struct LoxCompileError {
     // Snippets and highlights can be included in the diagnostic!
     #[label("This bit here")]
     pub(crate) bad_bit: SourceSpan,
+
+    pub(crate) label: String,
 }
 
 #[derive(Error, Debug, Diagnostic)]
-#[error("oops!")]
+#[error("Runtime Error")]
 #[diagnostic(code(oops::lox::runtimeError), help("A runtime error occurred"))]
 pub struct LoxRuntimeError {}
 

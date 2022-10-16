@@ -14,12 +14,12 @@ use std::io::Write;
 
 use std::{io, mem};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParserError {
-    line: isize,
-    start: usize,
+    pub line: isize,
+    pub start: usize,
     len: usize,
-    msg: String,
+    pub msg: String,
 }
 
 #[derive(Debug)]
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
         self.previous = self.current.clone();
         loop {
             self.current = self.scanner.scan_token();
-            // println!("CURENT {:?} ", self.current.token_type);
+            // dbg!(format!("CURRENT {:?} ", self.current.token_type));
             match self.current.token_type {
                 TokenType::Error => {
                     println!("ERROR")
@@ -67,7 +67,7 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    pub fn compile(&mut self) -> Result<&mut ObjectFunction, LoxCompileError> {
+    pub fn compile(&mut self) -> Result<&mut ObjectFunction, ParserError> {
         self.result = None;
         self.panic_mode = false;
         self.advance();
@@ -161,6 +161,10 @@ impl<'a> Parser<'a> {
 
         self.identifier_constant()
     }
+
+    ///
+    ///
+    ///
     pub(crate) fn identifier_constant(&mut self) -> usize {
         match &self.previous.token_type {
             TokenType::Identifier(name) => self
@@ -499,7 +503,7 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    fn end_compiler(&mut self) -> Result<&mut ObjectFunction, LoxCompileError> {
+    fn end_compiler(&mut self) -> Result<&mut ObjectFunction, ParserError> {
         self.compiler.function.emit_return(self.previous.line);
 
         // if let None = self.result {
@@ -519,10 +523,7 @@ impl<'a> Parser<'a> {
 
         match res {
             None => Ok(&mut self.compiler.function),
-            Some(err) => Err(LoxCompileError {
-                src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
-                bad_bit: (err.start, err.len).into(),
-            }),
+            Some(err) => Err(err.clone()),
         }
     }
 
@@ -640,13 +641,14 @@ impl<'a> Parser<'a> {
                     self.error("Can't have more than 255 arguments")
                 }
                 count += 1;
-                if !self.check(TokenType::Comma) {
+                if !self.match_token(TokenType::Comma) {
+                    // dbg!(format!("NOT A COMMA {:?}", self.current.token_type));
                     break;
                 }
             }
         }
         self.consume(TokenType::RightParen, "Expect ')' after arguments");
-        //  dbg!(count);
+        dbg!(count);
         count
     }
 
@@ -723,7 +725,7 @@ impl<'a> Parser<'a> {
             start: token.start,
             len: token.len,
             msg: msg.to_string(),
-        })
+        });
         // self.result = Some(Box::new(LoxCompileError {
         //     src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
         //     bad_bit: (9, 4).into(),

@@ -2,18 +2,20 @@
 use crate::chunk::ChunkOpCodeReader;
 use std::backtrace::Backtrace;
 
-use crate::error::LoxRuntimeError;
+use crate::error::{LoxCompileError, LoxRuntimeError};
 use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
-use miette::{Error, IntoDiagnostic, Report, Result};
+use miette::{ErrReport, Error, IntoDiagnostic, NamedSource, Report, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
 use std::io::{stdout, Write};
+
+use thiserror::Error;
 
 pub struct CallFrame {
     function: ObjectFunction,
@@ -62,8 +64,13 @@ impl VM {
         let compile_result = parser.compile();
         return match compile_result {
             Err(err) => {
-                println!("{:?}", err);
-                Err(err).into_diagnostic()
+                //    println!("{:?}", err);
+                Err(LoxCompileError {
+                    src: NamedSource::new("bad_file.rs", parser.scanner.get_input()),
+                    bad_bit: (err.line as usize, err.start as usize).into(),
+                    label: err.msg,
+                })
+                .into_diagnostic()
             }
             Ok(function) => {
                 // println!("The origin is: {function:?}");

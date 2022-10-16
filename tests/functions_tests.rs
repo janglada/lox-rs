@@ -30,18 +30,15 @@ var c =  one("1");
 
     #[test]
     fn vm_function_simple_sum() -> Result<()> {
-        assert_ok(
+        assert_ok_equals(
             &mut VM::new(),
             r#"
-
 fun sum(a, b) {
     return a + b;
 }
-var s = sum(5, 6;
-print 4 + s;
-
-
+return sum(5, 2);
         "#,
+            Value::Number(7 as f64),
         )
     }
 
@@ -103,20 +100,10 @@ return sq;
             &mut VM::new(),
             r#"
 fun fib(n) {
-    print "FIB " + n;
-
-    print n < 2;
-    if (2 > n) {
-        print "RETURNING..." + n ; 
+    if (n < 2) {
         return n;
     } else {
-        let f2 =  fib(n-2);
-        let f1 =  fib(n-1);
-        let a = "FIB (" + n;
-        let b = a + ") =";
-        let c = b + f1 + f2;
-        print c;
-        return f1 + f2;
+        return fib(n-2) + fib(n-1);
     }
 }
 

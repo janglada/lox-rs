@@ -14,15 +14,15 @@ pub fn assert_ok(vm: &mut VM, s: &'static str) -> Result<()> {
     // }
 
     // vm.interpret(s)
-
+    // vm.interpret(s)?;
     if let Err(err) = vm.interpret(s) {
         let mut out = String::new();
-        GraphicalReportHandler::new_themed(GraphicalTheme::unicode())
-            .with_width(80)
+        GraphicalReportHandler::new_themed(GraphicalTheme::ascii())
+            .with_width(120)
             .render_report(&mut out, err.as_ref())
             .unwrap();
 
-        //println!("{}", out);
+        println!("{}", out);
         return Err(err);
     }
 
