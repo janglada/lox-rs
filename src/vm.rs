@@ -14,7 +14,11 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
 use std::io::{stdout, Write};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use crate::native::{NativeFn, ObjectNative};
+use crate::value::Value::Number;
+use crate::vm::CallResponse::{Native, Standard};
 use thiserror::Error;
 
 pub struct CallFrame {
@@ -36,18 +40,49 @@ pub enum InterpretResult {
     RuntimeError,
 }
 
+pub enum CallResponse {
+    Standard(bool),
+    Native,
+}
+
 impl VM {
     pub fn new() -> Self {
-        VM {
+        let mut vm = VM {
             frames: ArrayVec::<CallFrame, 64>::new(),
             frame_count: 0,
             stack: Stack::with_capacity(256),
             globals: HashMap::new(),
-        }
+        };
+        vm.define_native("clock".to_string(), |a, b| {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            return Number(now as f64);
+        });
+
+        vm.define_native("sin".to_string(), |a, b| unsafe {
+            let arg = *b.as_ref().unwrap().as_number().unwrap();
+            return Number(arg.sin());
+        });
+
+        vm
     }
 
     fn print_value(value: &Value) {
         println!("{}", value)
+    }
+
+    fn define_native(&mut self, name: String, function: NativeFn) {
+        // self.stack.push(Value::String(name.clone()));
+        // self.stack.push(Value::NativeFunction(ObjectNative::new(
+        //     name.clone(),
+        //     function,
+        // )));
+        self.globals.insert(
+            name.clone(),
+            Value::NativeFunction(ObjectNative::new(name.clone(), function)),
+        );
     }
 
     pub fn interpret(&mut self, source: &str) -> Result<Option<Value>> {
@@ -205,8 +240,6 @@ impl VM {
     pub fn pop_operand_as_bool(&mut self) -> Result<bool> {
         if !self.stack.peek(0).is_bool() {
             return self.wrong_type_error("Operands must be boolean");
-
-            // return Err(LoxRuntimeError::new())?;
         }
         let b = *self.stack.pop().as_bool().unwrap();
 
@@ -226,9 +259,15 @@ impl VM {
     //     self.call_value(v, arg_count)
     // }
 
-    fn call_value(&mut self, peek_pos: usize, arg_count: &u8, opcode_pos: usize) -> Result<bool> {
+    fn call_value(
+        &mut self,
+        peek_pos: usize,
+        arg_count: &u8,
+        opcode_pos: usize,
+    ) -> Result<CallResponse> {
         // let callee1 = self.stack.peek_mut(peek_pos - 1);
         let callee = self.stack.peek_mut(peek_pos);
+
         // println!(
         //     "peek_pos {}, arg_count {}, calle {}",
         //     peek_pos,
@@ -247,10 +286,22 @@ impl VM {
             //     }
             // }
             if let Ok(mut func) = callee.as_function() {
-                return self.call(&mut func, arg_count, opcode_pos);
-            } else {
-                return self.runtime_error("Non callable object");
-            };
+                return Ok(CallResponse::Standard(
+                    self.call(&mut func, arg_count, opcode_pos).unwrap(),
+                ));
+            }
+            if let Ok(mut native) = callee.as_native() {
+                unsafe {
+                    let fn_native = native.function;
+                    let ptr0 = self.stack.as_ptr();
+                    let ptr = self.stack.as_ptr().offset(-((*arg_count) as isize));
+                    let result = fn_native(*arg_count, ptr);
+                    self.stack.pop_n(arg_count + 1);
+
+                    self.stack.push(result);
+                    return Ok(CallResponse::Native);
+                }
+            }
         }
 
         self.runtime_error("Can only call functions and classes")
@@ -300,7 +351,7 @@ impl VM {
         while let Some((_ip, c)) = op_code_iter.next() {
             let a = c.clone();
 
-            // write!(stdout(), "OP CODE {:?}\n", a);
+            //write!(stdout(), "OP CODE {:?}\n", a);
 
             // if counter > 50 {
             //     panic!();
@@ -507,8 +558,12 @@ impl VM {
                 Opcode::OpCall(num_args) => {
                     // println!("OPCALL {}", _ip);
                     // let mut v = self.stack.peek_mut((*num_args) as usize);
-                    match self.call_value((*num_args) as usize, num_args, _ip) {
-                        Ok(success) => {
+
+                    match self
+                        .call_value((*num_args) as usize, num_args, _ip)
+                        .unwrap()
+                    {
+                        Standard(success) => {
                             if success {
                                 frame = self.frames.last_mut().unwrap();
                                 chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; //unsafe { &(*frame.function).chunk };
@@ -518,8 +573,8 @@ impl VM {
                                 return self.runtime_error("Could not call function");
                             }
                         }
-                        Err(err) => {
-                            return Err(err);
+                        Native => {
+                            // return Err(err);
                         }
                     }
                 }

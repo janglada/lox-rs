@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::Sub;
 
 /// A stack.
 ///
@@ -44,6 +45,12 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.pop().expect("Unable to pop from empty stack!")
     }
 
+    pub fn pop_n(&mut self, n: u8) {
+        for i in 0..n {
+            self.safe_pop();
+        }
+    }
+
     pub fn safe_pop(&mut self) -> Option<T> {
         self.0.pop()
     }
@@ -85,6 +92,14 @@ impl<T: fmt::Debug> Stack<T> {
 
     pub fn as_slice(&self) -> &[T] {
         self.0.as_slice()
+    }
+
+    pub unsafe fn as_ptr(&mut self) -> *const T {
+        let len = self.0.len();
+        if len == 0 {
+            panic!("Cannot peek into empty stack!")
+        }
+        self.0.as_ptr().offset(len as isize)
     }
 }
 

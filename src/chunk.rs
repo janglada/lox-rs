@@ -65,6 +65,9 @@ impl Chunk {
                 Value::Function(_func) => {
                     todo!("serialize funtcion to bytes");
                 }
+                Value::NativeFunction(_func) => {
+                    todo!("serialize funtcion to bytes");
+                }
             }
         });
 
