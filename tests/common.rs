@@ -62,19 +62,4 @@ pub fn assert_compile_error(vm: &mut VM, s: &'static str) -> Result<(), &'static
         Ok(_) => Err("Expected a compile Error"),
         Err(_) => Ok(()),
     }
-
-    // match vm.interpret(s) {
-    //     InterpretResult::Ok(val) => {
-    //         panic!(
-    //             "Expected RuntimeError, found OK({})",
-    //             val.unwrap_or(Value::String("empty".to_string()))
-    //         )
-    //     }
-    //     InterpretResult::CompileError => {
-    //         println!("CompileError")
-    //     }
-    //     InterpretResult::RuntimeError => {
-    //         panic!("Expected CompileError found RuntimeError")
-    //     }
-    // }
 }

@@ -12,6 +12,56 @@ mod tests {
     use rox::value::Value;
     use rox::vm::VM;
 
+    ///
+    ///
+    ///
+    #[test]
+    #[should_panic]
+    fn vm_assert_too_many_args() -> () {
+        VM::new()
+            .interpret(
+                r#"
+fun f(a, b) {
+  print a;
+  print b;
+}
+
+f(1, 2, 3, 4); // expect runtime error: Expected 2 arguments but got 4.
+        "#,
+            )
+            .expect("Should panic");
+        ()
+    }
+
+    #[test]
+    #[should_panic]
+    fn vm_assert_missing_many_args() -> () {
+        VM::new()
+            .interpret(
+                r#"
+fun f(a, b) {
+  print a;
+  print b;
+}
+
+f(1); // expect runtime error: Expected 2 arguments but got 4.
+        "#,
+            )
+            .expect("Should panic");
+        ()
+    }
+    #[test]
+    #[should_panic]
+    fn vm_assert_missing_comma() -> () {
+        VM::new()
+            .interpret(
+                r#"
+fun foo(a, b c, d, e, f) {}
+        "#,
+            )
+            .expect("Should panic");
+        ()
+    }
     #[test]
     fn vm_function_simple_compile() -> Result<()> {
         assert_ok(
@@ -147,18 +197,63 @@ return sq;
     }
 
     #[test]
+    fn vm_sub_function() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"            
+
+fun a(x) {
+
+    // 
+    fun b(x) {
+       //
+       fun c(x) {
+            return x;
+       }
+       return c(x+1);
+    }
+    
+    return b(x+1);
+}
+
+return a(1);
+        "#,
+            Value::Number(3 as f64),
+        )
+    }
+
+    ///
+    ///
+    ///
+    #[test]
+    #[should_panic]
+    fn vm_assert_stack_overflow() -> () {
+        VM::new()
+            .interpret(
+                r#"
+fun a(x) {
+    return a(x+1);
+}
+print a(1);
+        "#,
+            )
+            .expect("Should panic");
+        ()
+    }
+
+    ///
+    ///
+    ///
+    #[test]
     fn vm_fibonacci() -> Result<()> {
         assert_ok_equals(
             &mut VM::new(),
             r#"
 fun fib(n) {
     // print "FIB n= " + n;
-    if (n < 2) {
-        // print "RETURN " + n;
-        return n;
-    } else {
-        return  n + fib(n-1);
-    }
+    if (n < 2) return n;
+    else return  n + fib(n-1);
+
 }
 
   fib(6);
@@ -167,6 +262,35 @@ fun fib(n) {
         )
     }
 
+    //
+    //
+
+    #[test]
+    fn vm_nested_call() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"
+fun returnArg(arg) {
+  return arg;
+}
+
+fun returnFunCallWithArg(func, arg) {
+  return returnArg(func)(arg);
+}
+
+fun printArg(arg) {
+  print arg;
+}
+
+return returnFunCallWithArg(printArg, "hello world"); // expect: hello world
+        "#,
+            Value::String("hello world".to_string()),
+        )
+    }
+
+    ///
+    ///
+    ///
     #[test]
     fn vm_fn_native_no_args() -> Result<()> {
         assert_ok(
