@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 /// A stack.
 ///
 /// Supports only the most basic stack operations needed for the machine.
@@ -64,7 +63,7 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.get(idx).expect("Unable to get index from stack")
     }
     pub fn replace(&mut self, idx: usize, value: T) {
-        std::mem::replace(&mut self.0[idx], value);
+        let _ = std::mem::replace(&mut self.0[idx], value);
     }
 
     /// Take a sneaky look at the top element on the stack.

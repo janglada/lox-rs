@@ -111,7 +111,7 @@ fn usize_from_bytes(bytes: &[u8]) -> usize {
 }
 fn usize_from_reader(reader: &mut File) -> usize {
     let mut buffer = [0_u8; std::mem::size_of::<usize>()];
-    reader.read(&mut buffer);
+    reader.read(&mut buffer).unwrap();
     usize::from_le_bytes(buffer)
 }
 fn u16_from_bytes(bytes: &[u8]) -> u16 {
@@ -121,7 +121,7 @@ fn u16_from_bytes(bytes: &[u8]) -> u16 {
 }
 fn u16_from_reader(reader: &mut File) -> u16 {
     let mut buffer = [0_u8; std::mem::size_of::<u16>()];
-    reader.read(&mut buffer);
+    reader.read(&mut buffer).unwrap();
     u16::from_le_bytes(buffer)
 }
 impl Opcode {

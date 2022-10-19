@@ -1,4 +1,3 @@
-#![feature(backtrace)]
 use crate::chunk::ChunkOpCodeReader;
 use std::backtrace::Backtrace;
 
@@ -13,13 +12,12 @@ use miette::{Error, IntoDiagnostic, NamedSource, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
-use std::io::{Write};
+use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::native::{NativeFn, ObjectNative};
 use crate::value::Value::Number;
 use crate::vm::CallResponse::{Native, Standard};
-
 
 pub struct CallFrame {
     function: ObjectFunction,
@@ -116,7 +114,7 @@ impl VM {
                 // function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
 
                 self.stack.push(Value::Function(function.clone()));
-                self.call(function, &0, 0);
+                let _ = self.call(function, &0, 0);
                 // self.frames.push(CallFrame {
                 //     function,
                 //     ip: 0,
@@ -163,11 +161,11 @@ impl VM {
         //     // unsafe { (*frame.function).chunk }
         // }
 
-        unsafe {
-            Err(Error::msg(
-                format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
-            ))?
-        }
+        // unsafe {
+        Err(Error::msg(
+            format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
+        ))?
+        // }
     }
 
     fn wrong_type_error<T>(&mut self, msg: &str) -> Result<T> {
@@ -177,11 +175,10 @@ impl VM {
         // unsafe {
         //     println!("Custom backtrace: {}", Backtrace::force_capture());
         // }
-        unsafe {
-            Err(Error::msg(
-                format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
-            ))?
-        }
+
+        Err(Error::msg(
+            format!("{}\n\n{}", msg.to_string(), Backtrace::force_capture()).to_string(),
+        ))?
     }
 
     pub fn pop_operand_as_number(&mut self) -> Result<f64> {

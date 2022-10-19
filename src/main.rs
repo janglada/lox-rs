@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate lazy_static;
 extern crate num_derive;
 
@@ -18,7 +17,7 @@ fn main() {
     } else if real_args.len() == 2 {
         run_file(&args[1]);
     } else {
-        run_prompt();
+        run_prompt().unwrap();
     }
 }
 

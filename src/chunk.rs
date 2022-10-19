@@ -29,7 +29,7 @@ impl Chunk {
 
     pub fn bytes_to_usize(reader: &mut File) -> usize {
         let mut buffer = [0_u8; std::mem::size_of::<usize>()];
-        reader.read(&mut buffer);
+        reader.read(&mut buffer).unwrap();
         usize::from_le_bytes(buffer)
     }
 
@@ -37,7 +37,7 @@ impl Chunk {
         // write constant pool
 
         // size of pool
-        file.write(&[self.constants.len() as u8]);
+        file.write(&[self.constants.len() as u8]).unwrap();
 
         //
         self.constants.iter().for_each(|c| {
@@ -46,21 +46,21 @@ impl Chunk {
             // write byte values
             match c {
                 Value::Boolean(b) => {
-                    file.write(&[1]); // t
-                    file.write(&[if *b { 1 } else { 0 }]); // bytes
+                    file.write(&[1]).unwrap(); // t
+                    file.write(&[if *b { 1 } else { 0 }]).unwrap(); // bytes
                 }
                 Value::Nil => {
-                    file.write(&[2]); // type
+                    file.write(&[2]).unwrap(); // type
                 }
                 Value::Number(d) => {
-                    file.write(&[3]); // type
-                    file.write(&d.to_le_bytes());
+                    file.write(&[3]).unwrap(); // type
+                    file.write(&d.to_le_bytes()).unwrap();
                 }
                 Value::String(s) => {
-                    file.write(&[4]);
+                    file.write(&[4]).unwrap();
                     let str_bytes = s.as_bytes();
-                    file.write(&Chunk::size_to_bytes(str_bytes.len()));
-                    file.write(str_bytes);
+                    file.write(&Chunk::size_to_bytes(str_bytes.len())).unwrap();
+                    file.write(str_bytes).unwrap();
                 }
                 Value::Function(_func) => {
                     todo!("serialize funtcion to bytes");
@@ -71,7 +71,7 @@ impl Chunk {
             }
         });
 
-        file.flush();
+        file.flush().unwrap();
 
         // write chunks
         self.op_codes.iter().for_each(|opcode| {
@@ -84,18 +84,18 @@ impl Chunk {
 
     pub fn from_bytes(file: &mut File) -> Chunk {
         let mut buff = [0u8; 1];
-        file.read(&mut buff);
+        file.read(&mut buff).unwrap();
         let mut constant_pool_len = buff[0] as i8;
 
         let mut constants: Vec<Value> = Vec::new();
         while constant_pool_len > 0 {
             // read type
-            file.read(&mut buff);
+            file.read(&mut buff).unwrap();
             let value = match buff[0] {
                 // Boolean
                 1 => {
                     // read 0 or 1
-                    file.read(&mut buff);
+                    file.read(&mut buff).unwrap();
                     Value::Boolean(buff[0] == 1)
                 }
 
@@ -104,7 +104,7 @@ impl Chunk {
                 // number
                 3 => {
                     let mut buff_f64 = [0u8; 8];
-                    file.read(&mut buff_f64);
+                    file.read(&mut buff_f64).unwrap();
                     Value::Number(f64::from_le_bytes(buff_f64))
                 }
                 // string
@@ -114,7 +114,7 @@ impl Chunk {
                     unsafe {
                         buff_f64.set_len(len);
                     }
-                    file.read(buff_f64.as_mut_slice());
+                    file.read(buff_f64.as_mut_slice()).unwrap();
                     let s = String::from_utf8(buff_f64).ok().unwrap();
                     Value::String(s)
                 }
@@ -237,16 +237,16 @@ impl Chunk {
     }
 
     pub(crate) fn disassemble_chunk_constants(&mut self, writer: &mut dyn Write) {
-        write!(writer, "CONSTANTS\n");
+        write!(writer, "CONSTANTS\n").unwrap();
         self.constants.iter().enumerate().for_each(|(i, ct)| {
-            write!(writer, "{} {}\n", i, ct);
+            write!(writer, "{} {}\n", i, ct).unwrap();
         });
     }
 
     ///
     ///
     fn disassemble_instruction(&self, offset: usize, writer: &mut dyn Write) -> usize {
-        write!(writer, "{:04} ", offset);
+        write!(writer, "{:04} ", offset).unwrap();
         let opcode = self.op_codes.get(offset).unwrap();
         let code = match opcode {
             Opcode::OpReturn => Chunk::simple_instruction("OP_RETURN", offset, writer),
@@ -301,13 +301,13 @@ impl Chunk {
             }
         };
 
-        writer.flush();
+        writer.flush().unwrap();
 
         code
     }
 
     fn simple_instruction(name: &str, offset: usize, writer: &mut dyn Write) -> usize {
-        writeln!(writer, "{: <20}", name);
+        writeln!(writer, "{: <20}", name).unwrap();
         offset + 1
     }
 
@@ -319,7 +319,7 @@ impl Chunk {
         writer: &mut dyn Write,
     ) -> usize {
         let value = self.constants.get(const_idx).unwrap();
-        writeln!(writer, "{: <20} {: <5} '{}' ", name, const_idx, value);
+        writeln!(writer, "{: <20} {: <5} '{}' ", name, const_idx, value).unwrap();
         offset + 1
     }
 
@@ -333,14 +333,14 @@ impl Chunk {
         let op_code = self.op_codes.get(offset).unwrap();
         match op_code {
             Opcode::OpGetLocal(idx) => {
-                writeln!(writer, "{: <20} {: <5}  ", name, idx);
+                writeln!(writer, "{: <20} {: <5}  ", name, idx).unwrap();
             }
             Opcode::OpSetLocal(idx) => {
-                writeln!(writer, "{: <20} {: <5}  ", name, idx);
+                writeln!(writer, "{: <20} {: <5}  ", name, idx).unwrap();
             }
 
             Opcode::OpCall(num_args) => {
-                writeln!(writer, "{: <20} {: <5}  ", name, num_args);
+                writeln!(writer, "{: <20} {: <5}  ", name, num_args).unwrap();
             }
             _ => {
                 panic!("INVALID")
@@ -363,7 +363,8 @@ impl Chunk {
             name,
             offset,
             offset as i32 + 1 + sign as i32 * (*jump as i32)
-        );
+        )
+        .unwrap();
         offset + 1
     }
 }
@@ -398,8 +399,8 @@ mod tests {
         chunk.write_chunk(Opcode::OpConstant(idx));
 
         let mut file = File::create("foo.txt").unwrap();
-        chunk.to_bytes(&mut file);
-        file.flush();
+        chunk.to_bytes(&mut file).unwrap();
+        file.flush().unwrap();
 
         let mut file1 = File::open("foo.txt").unwrap();
         // let mut v = Vec::new();
