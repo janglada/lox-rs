@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::Sub;
+
 
 /// A stack.
 ///
@@ -46,7 +46,7 @@ impl<T: fmt::Debug> Stack<T> {
     }
 
     pub fn pop_n(&mut self, n: u8) {
-        for i in 0..n {
+        for _i in 0..n {
             self.safe_pop();
         }
     }

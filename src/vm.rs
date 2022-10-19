@@ -9,17 +9,17 @@ use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
-use miette::{ErrReport, Error, IntoDiagnostic, NamedSource, Report, Result};
+use miette::{Error, IntoDiagnostic, NamedSource, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
-use std::io::{stdout, Write};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::io::{Write};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::native::{NativeFn, ObjectNative};
 use crate::value::Value::Number;
 use crate::vm::CallResponse::{Native, Standard};
-use thiserror::Error;
+
 
 pub struct CallFrame {
     function: ObjectFunction,
@@ -53,7 +53,7 @@ impl VM {
             stack: Stack::with_capacity(256),
             globals: HashMap::new(),
         };
-        vm.define_native("clock".to_string(), |a, b| {
+        vm.define_native("clock".to_string(), |_a, _b| {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -61,7 +61,7 @@ impl VM {
             return Number(now as f64);
         });
 
-        vm.define_native("sin".to_string(), |a, b| unsafe {
+        vm.define_native("sin".to_string(), |_a, b| unsafe {
             let arg = *b.as_ref().unwrap().as_number().unwrap();
             return Number(arg.sin());
         });
@@ -290,10 +290,10 @@ impl VM {
                     self.call(&mut func, arg_count, opcode_pos).unwrap(),
                 ));
             }
-            if let Ok(mut native) = callee.as_native() {
+            if let Ok(native) = callee.as_native() {
                 unsafe {
                     let fn_native = native.function;
-                    let ptr0 = self.stack.as_ptr();
+                    let _ptr0 = self.stack.as_ptr();
                     let ptr = self.stack.as_ptr().offset(-((*arg_count) as isize));
                     let result = fn_native(*arg_count, ptr);
                     self.stack.pop_n(arg_count + 1);
@@ -346,10 +346,10 @@ impl VM {
                                                       // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
 
-        let mut counter = 0;
+        let _counter = 0;
         // let mut op_code_iter = chunk.op_codes.iter();
         while let Some((_ip, c)) = op_code_iter.next() {
-            let a = c.clone();
+            let _a = c.clone();
 
             //write!(stdout(), "OP CODE {:?}\n", a);
 
@@ -591,7 +591,7 @@ impl VM {
                     let _result: Value = self.stack.pop();
                     let last_frame = self.frames.pop();
                     if self.frames.is_empty() {
-                        let retVal = self.stack.pop();
+                        let _retVal = self.stack.pop();
                         return Ok(Some(_result));
                     }
                     self.stack.push(_result);
@@ -602,14 +602,14 @@ impl VM {
                     op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
                     if let Some(f) = last_frame {
                         // println!("OPCODE POS {}", f.op_code_pos);
-                        for i in 0..f.op_code_pos {
+                        for _i in 0..f.op_code_pos {
                             op_code_iter.next();
                         }
                     }
                 }
             }
         }
-        let a = self.stack.peek(0);
+        let _a = self.stack.peek(0);
         return Err(LoxRuntimeError::new("end program"))?;
     }
 }

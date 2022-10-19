@@ -1,4 +1,4 @@
-use rox;
+
 
 mod common;
 
@@ -8,7 +8,7 @@ mod tests {
         assert_compile_error, assert_ok, assert_ok_equals, assert_ok_return_value,
         assert_runtime_error,
     };
-    use miette::{IntoDiagnostic, Result};
+    use miette::{Result};
     use rox::value::Value;
     use rox::vm::VM;
     #[test]

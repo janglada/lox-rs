@@ -1,14 +1,13 @@
-use rox;
+
 
 mod common;
 
 #[cfg(test)]
 mod tests {
     use crate::common::{
-        assert_compile_error, assert_ok, assert_ok_equals, assert_ok_return_value,
-        assert_runtime_error,
+        assert_ok, assert_ok_equals,
     };
-    use miette::{IntoDiagnostic, Result};
+    use miette::{Result};
     use rox::value::Value;
     use rox::vm::VM;
 
@@ -250,13 +249,19 @@ print a(1);
             &mut VM::new(),
             r#"
 fun fib(n) {
-    // print "FIB n= " + n;
-    if (n < 2) return n;
-    else return  n + fib(n-1);
-
+    print "FIB n= " + n;
+    print n < 2;
+    if (n < 2) {
+        print "RETURN (a)=" + n;
+        return n;
+    } else { 
+        //var r = n + fib(n-1);
+        //print "RETURN (b)=" + r;
+        return  n-1;
+    }
 }
 
-  fib(6);
+return fib(2);
         "#,
             Value::Number(8 as f64),
         )

@@ -1,7 +1,5 @@
-use miette::{Diagnostic, IntoDiagnostic, SourceSpan};
-use miette::{Error, NamedSource};
-
-use std::fmt;
+use miette::NamedSource;
+use miette::{Diagnostic, SourceSpan};
 
 use thiserror::Error;
 
@@ -26,7 +24,7 @@ pub struct LoxCompileError {
 pub struct LoxRuntimeError {}
 
 impl LoxRuntimeError {
-    pub fn new(msg: &str) -> Self {
+    pub fn new(_msg: &str) -> Self {
         LoxRuntimeError {}
     }
 }

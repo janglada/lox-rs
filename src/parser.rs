@@ -1,6 +1,6 @@
 use crate::chunk::ChunkWriterTrait;
 use crate::compiler::{Compiler, Local};
-use crate::error::LoxCompileError;
+
 use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
 use crate::precedence::{ParserRule, Precedence};
@@ -8,11 +8,11 @@ use crate::scanner::Scanner;
 use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
-use miette::NamedSource;
 
-use std::io::Write;
 
-use std::{io, mem};
+
+
+use std::{mem};
 
 #[derive(Debug, Clone)]
 pub struct ParserError {
@@ -624,7 +624,7 @@ impl<'a> Parser<'a> {
         self.block();
 
         let compiler = self.pop_compiler();
-        let mut function = compiler.function;
+        let function = compiler.function;
         let v = Value::Function(*function);
         let _ = &self.compiler.function.emit_constant(v, self.previous.line);
     }
@@ -648,7 +648,7 @@ impl<'a> Parser<'a> {
             }
         }
         self.consume(TokenType::RightParen, "Expect ')' after arguments");
-        dbg!(count);
+        //  dbg!(count);
         count
     }
 
