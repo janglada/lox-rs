@@ -270,7 +270,10 @@ impl<'a> Parser<'a> {
         while !self.check(TokenType::RightBrace) && !self.check(TokenType::EOF) {
             self.declaration();
         }
-        self.consume(TokenType::RightBrace, "Expect ')' after block");
+        self.consume(
+            TokenType::RightBrace,
+            "Expect '}' after block. Maybe a ';' missing?",
+        );
     }
 
     ///

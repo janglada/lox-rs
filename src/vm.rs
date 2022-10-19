@@ -200,7 +200,14 @@ impl VM {
         let op1 = self.stack.peek(0);
         let op2 = self.stack.peek(1);
         if !op1.is_number() || !op2.is_number() {
-            return self.wrong_type_error("Operand must be numbers");
+            return self.wrong_type_error(
+                format!(
+                    "Operand must be numbers, found operand #1 = {:?}, #2 = {:?}",
+                    op1.to_string(),
+                    op2.to_string()
+                )
+                .as_str(),
+            );
         }
         let b = *self.stack.pop().as_number().unwrap();
         let a = *self.stack.pop().as_number().unwrap();

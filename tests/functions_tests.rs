@@ -1,13 +1,9 @@
-
-
 mod common;
 
 #[cfg(test)]
 mod tests {
-    use crate::common::{
-        assert_ok, assert_ok_equals,
-    };
-    use miette::{Result};
+    use crate::common::{assert_ok, assert_ok_equals};
+    use miette::Result;
     use rox::value::Value;
     use rox::vm::VM;
 
@@ -239,6 +235,25 @@ print a(1);
             .expect("Should panic");
         ()
     }
+    #[test]
+    fn vm_factorial() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"
+fun fib(n) {
+
+    if (n < 2) {
+        return n;
+    } else {
+        return  n* fib(n-1);
+    }
+}
+
+return fib(3);
+        "#,
+            Value::Number(6 as f64),
+        )
+    }
 
     ///
     ///
@@ -252,12 +267,12 @@ fun fib(n) {
     print "FIB n= " + n;
     print n < 2;
     if (n < 2) {
-        print "RETURN (a)=" + n;
+        //print "RETURN (a)=" + n;
         return n;
     } else { 
         //var r = n + fib(n-1);
         //print "RETURN (b)=" + r;
-        return  n-1;
+        return  fib(n-1) + fib(n-2);
     }
 }
 
