@@ -2,6 +2,7 @@ use crate::opcode::Opcode;
 use crate::value::Value;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::ops::Sub;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
@@ -163,11 +164,16 @@ pub struct ChunkOpCodeReader<'s> {
 }
 
 impl<'s> ChunkOpCodeReader<'s> {
-    pub fn new(op_codes: &'s [Opcode]) -> Self {
-        Self { op_codes, ip: 0 }
+    pub fn new(op_codes: &'s [Opcode], ip: usize) -> Self {
+        Self { op_codes, ip }
     }
-    pub fn prev(&mut self) {
-        self.ip -= 1;
+
+    pub fn jump(&mut self, amount: u16) {
+        self.ip = self.ip + amount as usize;
+    }
+
+    pub fn prev(&mut self, amount: u16) {
+        self.ip = self.ip - amount as usize;
     }
 
     pub fn read_slice(&mut self, n: usize) -> &[Opcode] {

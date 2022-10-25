@@ -192,7 +192,28 @@ return sq;
     }
 
     #[test]
-    fn vm_sub_function() -> Result<()> {
+    fn vm_chained_calls() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"            
+
+fun a(x) {
+    return b(x+1);
+}
+fun b(x) {
+   return c(x+1);
+}
+    
+fun c(x) {
+   return x;
+}
+return 1 + a(1);
+        "#,
+            Value::Number(4 as f64),
+        )
+    }
+    #[test]
+    fn vm_nested_chained_calls() -> Result<()> {
         assert_ok_equals(
             &mut VM::new(),
             r#"            
@@ -211,9 +232,9 @@ fun a(x) {
     return b(x+1);
 }
 
-return a(1);
+return 1 + a(1);
         "#,
-            Value::Number(3 as f64),
+            Value::Number(4 as f64),
         )
     }
 

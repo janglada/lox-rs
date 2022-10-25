@@ -8,7 +8,7 @@ use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
 use arrayvec::ArrayVec;
-use miette::{Error, IntoDiagnostic, NamedSource, Result};
+use miette::{miette, Error, IntoDiagnostic, NamedSource, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
@@ -23,7 +23,7 @@ pub struct CallFrame {
     function: ObjectFunction,
     //  The slots field points into the VM’s value stack at the first slot that this function can use
     value_stack_pos: usize,
-    op_code_pos: usize,
+    return_address_pos: usize,
 }
 
 pub struct VM {
@@ -334,7 +334,7 @@ impl VM {
         self.frames.push(CallFrame {
             function: function.clone(),
             value_stack_pos: p,
-            op_code_pos: opcode_pos,
+            return_address_pos: opcode_pos,
         });
 
         Ok(true)
@@ -348,12 +348,12 @@ impl VM {
         // let frame = frames_opt.last().unwrap();
         let mut chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
                                                       // for c in &chunk.op_codes
-        let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+        let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
 
         let _counter = 0;
         // let mut op_code_iter = chunk.op_codes.iter();
         while let Some((_ip, c)) = op_code_iter.next() {
-            let _a = c.clone();
+            //  let _a = c.clone();
 
             //write!(stdout(), "OP CODE {:?}\n", a);
 
@@ -363,7 +363,7 @@ impl VM {
             // counter = counter + 1;
 
             // println!("OP CODE {:?}", a);
-            io::stdout().flush().unwrap();
+            //  io::stdout().flush().unwrap();
             match c {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.read_constant(*idx).unwrap();
@@ -379,17 +379,6 @@ impl VM {
                     if r.is_err() {
                         return r;
                     }
-
-                    // match self.pop_operand_as_number() {
-                    //     Ok(f) => {
-                    //         // VM::replace(&mut self.stack, &mut Value::Number(-f));
-                    //         self.stack.push(Value::Number(-f));
-                    //     }
-                    //     Err(result) => {
-                    //         self.runtime_error("Operand must be a number");
-                    //         return result;
-                    //     }
-                    // }
                 }
 
                 Opcode::OpAdd => {
@@ -542,21 +531,15 @@ impl VM {
                 }
                 Opcode::OpJumpIfFalse(jump) => {
                     if VM::is_falsey(self.stack.peek(0)) {
-                        for _i in 0..*jump {
-                            op_code_iter.next();
-                        }
+                        op_code_iter.jump(*jump);
                     }
                 }
                 Opcode::OpJump(jump) => {
-                    for _i in 0..*jump {
-                        op_code_iter.next();
-                    }
+                    op_code_iter.jump(*jump);
                 }
 
                 Opcode::OpLoop(offset) => {
-                    for _i in 0..*offset {
-                        op_code_iter.prev();
-                    }
+                    op_code_iter.prev(*offset);
                 }
 
                 Opcode::OpCall(num_args) => {
@@ -572,7 +555,7 @@ impl VM {
                                 frame = self.frames.last_mut().unwrap();
                                 chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; //unsafe { &(*frame.function).chunk };
                                 frame_slot = frame.value_stack_pos; // for c in &chunk.op_codes
-                                op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
+                                op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
                             } else {
                                 return self.runtime_error("Could not call function");
                             }
@@ -595,20 +578,18 @@ impl VM {
                     let _result: Value = self.stack.pop();
                     let last_frame = self.frames.pop();
                     if self.frames.is_empty() {
-                        let _retVal = self.stack.pop();
+                        let _ = self.stack.pop();
                         return Ok(Some(_result));
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
-                    chunk = frame.function.chunk.clone(); // unsafe { &(*frame.function).chunk };
+                    chunk = frame.function.chunk.clone();
 
-                    // for c in &chunk.op_codes
-                    op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice());
                     if let Some(f) = last_frame {
-                        // println!("OPCODE POS {}", f.op_code_pos);
-                        for _i in 0..f.op_code_pos {
-                            op_code_iter.next();
-                        }
+                        op_code_iter =
+                            ChunkOpCodeReader::new(chunk.op_codes.as_slice(), f.return_address_pos);
+                    } else {
+                        return Err(miette!("Unexpected return"));
                     }
                 }
             }
