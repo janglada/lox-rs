@@ -190,9 +190,28 @@ return sq;
             Value::Number(9 as f64),
         )
     }
+    #[test]
+    fn vm_2_chained_calls() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"            
+
+fun a(x) {
+    return b(x+1);
+}
+fun b(x) {
+   return x;
+}
+    
+
+return a(1);
+        "#,
+            Value::Number(2 as f64),
+        )
+    }
 
     #[test]
-    fn vm_chained_calls() -> Result<()> {
+    fn vm_3_chained_calls() -> Result<()> {
         assert_ok_equals(
             &mut VM::new(),
             r#"            
@@ -207,7 +226,46 @@ fun b(x) {
 fun c(x) {
    return x;
 }
+return a(1);
+        "#,
+            Value::Number(3 as f64),
+        )
+    }
+
+    #[test]
+    fn vm_2_chained_calls_and_add_1() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"            
+
+fun a(x) {
+    return b(x+1);
+}
+fun b(x) {
+   return x;
+}
+    
+
 return 1 + a(1);
+        "#,
+            Value::Number(3 as f64),
+        )
+    }
+    #[test]
+    fn vm_2_chained_calls_and_add_2() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"            
+
+fun a(x) {
+    return b(x+1);
+}
+fun b(x) {
+   return x;
+}
+    
+
+return 2 + a(1);
         "#,
             Value::Number(4 as f64),
         )
@@ -266,11 +324,13 @@ fun fib(n) {
     if (n < 2) {
         return n;
     } else {
-        return  n* fib(n-1);
+        var r = n * fib(n-1);
+        return  r;
     }
 }
 
-return fib(3);
+var a = fib(3);
+return a;
         "#,
             Value::Number(6 as f64),
         )
