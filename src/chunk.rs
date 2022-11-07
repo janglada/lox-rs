@@ -2,7 +2,6 @@ use crate::opcode::Opcode;
 use crate::value::Value;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::ops::Sub;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {

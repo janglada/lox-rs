@@ -204,9 +204,9 @@ fun b(x) {
 }
     
 
-return a(1);
+return a(2);
         "#,
-            Value::Number(2 as f64),
+            Value::Number(3 as f64),
         )
     }
 
@@ -246,9 +246,9 @@ fun b(x) {
 }
     
 
-return 1 + a(1);
+return 1 + a(2);
         "#,
-            Value::Number(3 as f64),
+            Value::Number(4 as f64),
         )
     }
     #[test]

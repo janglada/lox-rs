@@ -3,21 +3,18 @@ use std::backtrace::Backtrace;
 
 use crate::error::{LoxCompileError, LoxRuntimeError};
 use crate::function::ObjectFunction;
+use crate::native::{NativeFn, ObjectNative};
 use crate::opcode::Opcode;
 use crate::parser::Parser;
 use crate::stack::Stack;
 use crate::value::Value;
+use crate::value::Value::Number;
+use crate::vm::CallResponse::{Native, Standard};
 use arrayvec::ArrayVec;
 use miette::{miette, Error, IntoDiagnostic, NamedSource, Result};
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::io;
-use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use crate::native::{NativeFn, ObjectNative};
-use crate::value::Value::Number;
-use crate::vm::CallResponse::{Native, Standard};
 
 pub struct CallFrame {
     function: ObjectFunction,
