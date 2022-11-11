@@ -93,6 +93,10 @@ impl<T: fmt::Debug> Stack<T> {
         self.0.as_slice()
     }
 
+    pub fn truncate(&mut self, len: usize) {
+        self.0.truncate(len);
+    }
+
     pub unsafe fn as_ptr(&mut self) -> *const T {
         let len = self.0.len();
         if len == 0 {

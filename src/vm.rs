@@ -260,14 +260,9 @@ impl VM {
     //     self.call_value(v, arg_count)
     // }
 
-    fn call_value(
-        &mut self,
-        peek_pos: usize,
-        arg_count: &u8,
-        opcode_pos: usize,
-    ) -> Result<CallResponse> {
+    fn call_value(&mut self, arity: &u8, opcode_pos: usize) -> Result<CallResponse> {
         // let callee1 = self.stack.peek_mut(peek_pos - 1);
-        let callee = self.stack.peek_mut(peek_pos);
+        let callee = self.stack.peek_mut(*arity as usize);
 
         // println!(
         //     "peek_pos {}, arg_count {}, calle {}",
@@ -288,16 +283,16 @@ impl VM {
             // }
             if let Ok(mut func) = callee.as_function() {
                 return Ok(CallResponse::Standard(
-                    self.call(&mut func, arg_count, opcode_pos).unwrap(),
+                    self.call(&mut func, arity, opcode_pos).unwrap(),
                 ));
             }
             if let Ok(native) = callee.as_native() {
                 unsafe {
                     let fn_native = native.function;
                     let _ptr0 = self.stack.as_ptr();
-                    let ptr = self.stack.as_ptr().offset(-((*arg_count) as isize));
-                    let result = fn_native(*arg_count, ptr);
-                    self.stack.pop_n(arg_count + 1);
+                    let ptr = self.stack.as_ptr().offset(-((*arity) as isize));
+                    let result = fn_native(*arity, ptr);
+                    self.stack.pop_n(arity + 1);
 
                     self.stack.push(result);
                     return Ok(CallResponse::Native);
@@ -379,6 +374,9 @@ impl VM {
                 }
 
                 Opcode::OpAdd => {
+                    // println!("ADD ---------------------------------------");
+                    // println!("{:?}", self.stack);
+
                     let op1 = self.stack.peek(0);
                     let op2 = self.stack.peek(1);
 
@@ -539,14 +537,11 @@ impl VM {
                     op_code_iter.prev(*offset);
                 }
 
-                Opcode::OpCall(num_args) => {
+                Opcode::OpCall(arity) => {
                     // println!("OPCALL {}", _ip);
                     // let mut v = self.stack.peek_mut((*num_args) as usize);
 
-                    match self
-                        .call_value((*num_args) as usize, num_args, _ip)
-                        .unwrap()
-                    {
+                    match self.call_value(arity, _ip).unwrap() {
                         Standard(success) => {
                             if success {
                                 frame = self.frames.last_mut().unwrap();
@@ -572,22 +567,26 @@ impl VM {
                 //     }
                 // }
                 Opcode::OpReturn => {
+                    // println!("RETURN ---------------------------------------");
+                    // println!("{:?}", self.stack);
+
                     let _result: Value = self.stack.pop();
-                    let last_frame = self.frames.pop();
+                    let last_frame = self.frames.pop().expect("no frame");
+
+                    self.stack.truncate(last_frame.value_stack_pos);
+
                     if self.frames.is_empty() {
-                        let _ = self.stack.pop();
+                        //let _ = self.stack.pop();
                         return Ok(Some(_result));
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
                     chunk = frame.function.chunk.clone();
 
-                    if let Some(f) = last_frame {
-                        op_code_iter =
-                            ChunkOpCodeReader::new(chunk.op_codes.as_slice(), f.return_address_pos);
-                    } else {
-                        return Err(miette!("Unexpected return"));
-                    }
+                    op_code_iter = ChunkOpCodeReader::new(
+                        chunk.op_codes.as_slice(),
+                        last_frame.return_address_pos,
+                    );
                 }
             }
         }

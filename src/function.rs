@@ -45,11 +45,12 @@ impl fmt::Debug for ObjectFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Object function {}, type= {}, arity ={}, \n chunk = {:?}]",
+            // "Object function {}, type= {}, arity ={},  chunk = {:?}]",
+            "Object function '{}',  arity ={}",
             self.name,
-            self.ftype.to_string(),
+            // self.ftype.to_string(),
             self.arity,
-            self.chunk
+            //  self.chunk
         )
     }
 }
