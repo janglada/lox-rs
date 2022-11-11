@@ -357,9 +357,9 @@ fun fib(n) {
     }
 }
 
-return fib(2);
+return fib(8);
         "#,
-            Value::Number(8 as f64),
+            Value::Number(21 as f64),
         )
     }
 
@@ -380,7 +380,7 @@ fun returnFunCallWithArg(func, arg) {
 }
 
 fun printArg(arg) {
-  print arg;
+  return  arg;
 }
 
 return returnFunCallWithArg(printArg, "hello world"); // expect: hello world

@@ -576,13 +576,13 @@ impl VM {
                     self.stack.truncate(last_frame.value_stack_pos);
 
                     if self.frames.is_empty() {
-                        //let _ = self.stack.pop();
+                        // let _ = self.stack.pop();
                         return Ok(Some(_result));
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
                     chunk = frame.function.chunk.clone();
-
+                    frame_slot = frame.value_stack_pos;
                     op_code_iter = ChunkOpCodeReader::new(
                         chunk.op_codes.as_slice(),
                         last_frame.return_address_pos,
