@@ -1,4 +1,4 @@
-use crate::chunk::ChunkOpCodeReader;
+use crate::chunk::{Chunk, ChunkArena, ChunkOpCodeReader};
 use std::backtrace::Backtrace;
 
 use crate::error::{LoxCompileError, LoxRuntimeError};
@@ -81,7 +81,9 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: &str) -> Result<Option<Value>> {
-        let mut parser = Parser::new(source);
+        let mut array_array = ChunkArena::new();
+
+        let mut parser = Parser::new(source, &mut array_array);
 
         // let mut function = parser.compile()?;
         // self.frames.push(CallFrame {
@@ -91,6 +93,7 @@ impl VM {
         // });
         // self.frame_count += 1;
         // self.run()
+
         let compile_result = parser.compile();
         return match compile_result {
             Err(err) => {
@@ -118,7 +121,7 @@ impl VM {
                 //     value_stack_pos: 0,
                 // });
                 // self.frame_count += 1;
-                self.run()
+                self.run(parser)
             }
         };
 
@@ -333,13 +336,13 @@ impl VM {
     }
     ///
     ///
-    pub fn run(&mut self) -> Result<Option<Value>> {
+    pub fn run(&mut self, parser: Parser) -> Result<Option<Value>> {
         // let mut frame = &mut self.frames[self.frame_count - 1];
         let mut frame = self.frames.last_mut().unwrap();
         let mut frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
-        let mut chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
-                                                      // for c in &chunk.op_codes
+        let mut chunk = parser.chunk_at(frame.function.chunk_index); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
+                                                                     // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
 
         let _counter = 0;
@@ -359,7 +362,7 @@ impl VM {
             match c {
                 Opcode::OpConstant(idx) => {
                     let const_val = chunk.read_constant(*idx).unwrap();
-                    self.stack.push(const_val.borrow().clone());
+                    self.stack.push(const_val.clone());
                     // println!("const val {}", const_val);
                 }
 
@@ -466,7 +469,7 @@ impl VM {
                         .unwrap();
 
                     self.globals
-                        .insert(name.to_string(), self.stack.peek(0).borrow().clone());
+                        .insert(name.to_string(), self.stack.peek(0).clone());
                     self.stack.pop();
                 }
 
@@ -480,7 +483,7 @@ impl VM {
 
                     match self.globals.get(name) {
                         Some(value) => {
-                            self.stack.push(value.borrow().clone());
+                            self.stack.push(value.clone());
                         }
                         None => {
                             return self
@@ -545,7 +548,7 @@ impl VM {
                         Standard(success) => {
                             if success {
                                 frame = self.frames.last_mut().unwrap();
-                                chunk = frame.function.chunk.clone(); //unsafe { (*frame.function).chunk.clone() }; //unsafe { &(*frame.function).chunk };
+                                chunk = parser.chunk_at(frame.function.chunk_index);
                                 frame_slot = frame.value_stack_pos; // for c in &chunk.op_codes
                                 op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
                             } else {
@@ -581,7 +584,7 @@ impl VM {
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
-                    chunk = frame.function.chunk.clone();
+                    chunk = parser.chunk_at(frame.function.chunk_index);
                     frame_slot = frame.value_stack_pos;
                     op_code_iter = ChunkOpCodeReader::new(
                         chunk.op_codes.as_slice(),
@@ -592,5 +595,21 @@ impl VM {
         }
         let _a = self.stack.peek(0);
         return Err(LoxRuntimeError::new("end program"))?;
+    }
+
+    pub fn get_frame_slot(self) -> usize {
+        self.frames.last().unwrap().value_stack_pos
+    }
+
+    pub fn frame_reader<'s>(
+        &self,
+        last_frame_addr: usize,
+        parser: &'s Parser,
+    ) -> ChunkOpCodeReader<'s> {
+        let chunk_index = self.frames.last().unwrap().function.chunk_index;
+        ChunkOpCodeReader::new(
+            parser.chunk_at(chunk_index).op_codes.as_slice(),
+            last_frame_addr,
+        )
     }
 }

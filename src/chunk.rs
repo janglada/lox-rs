@@ -1,5 +1,6 @@
 use crate::opcode::Opcode;
 use crate::value::Value;
+use crate::vm::CallFrame;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -140,21 +141,21 @@ impl Chunk {
 pub trait ChunkWriterTrait {
     ///
     ///
-    fn emit_byte(&mut self, byte: Opcode, line: isize);
+    fn emit_byte(&mut self, chunk_index: ChunkIndex, byte: Opcode, line: isize);
     ///
     ///
-    fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode, line: isize);
+    fn emit_bytes(&mut self, chunk_index: ChunkIndex, byte1: Opcode, byte2: Opcode, line: isize);
     ///
     ///
-    fn emit_return(&mut self, line: isize);
+    fn emit_return(&mut self, chunk_index: ChunkIndex, line: isize);
     ///
     ///
-    fn emit_constant(&mut self, value: Value, line: isize);
-    fn write_chunk(&mut self, byte: Opcode, _line: isize);
-    fn make_constant(&mut self, value: Value) -> usize;
-    fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>);
-    fn len(&self) -> usize;
-    fn replace_opcode(&mut self, index: usize, bytes: Opcode);
+    fn emit_constant(&mut self, chunk_index: ChunkIndex, value: Value, line: isize);
+    fn write_chunk(&mut self, chunk_index: ChunkIndex, byte: Opcode, _line: isize);
+    fn make_constant(&mut self, chunk_index: ChunkIndex, value: Value) -> usize;
+    fn disassemble_chunk(&mut self, chunk_index: ChunkIndex, writer: &mut Box<dyn Write>);
+    fn len(&self, chunk_index: ChunkIndex) -> usize;
+    fn replace_opcode(&mut self, chunk_index: ChunkIndex, index: usize, bytes: Opcode);
 }
 
 pub struct ChunkOpCodeReader<'s> {
@@ -163,6 +164,8 @@ pub struct ChunkOpCodeReader<'s> {
 }
 
 impl<'s> ChunkOpCodeReader<'s> {
+    pub fn set_frame(&mut self, frame: &CallFrame, ip: usize) {}
+
     pub fn new(op_codes: &'s [Opcode], ip: usize) -> Self {
         Self { op_codes, ip }
     }
@@ -415,5 +418,23 @@ mod tests {
         let _chunk1 = Chunk::from_bytes(&mut file1);
 
         let _a = 2;
+    }
+}
+
+pub type ChunkIndex = usize;
+
+#[derive(Debug)]
+pub struct ChunkArena {
+    pub chunks: Vec<Chunk>,
+}
+
+impl ChunkArena {
+    pub fn new() -> Self {
+        ChunkArena { chunks: Vec::new() }
+    }
+
+    pub fn allocate_chunk(&mut self) -> ChunkIndex {
+        self.chunks.push(Chunk::new());
+        self.chunks.len() - 1
     }
 }

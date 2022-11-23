@@ -1,5 +1,6 @@
-use crate::chunk::ChunkWriterTrait;
+use crate::chunk::{Chunk, ChunkIndex, ChunkWriterTrait};
 use crate::compiler::{Compiler, Local};
+use std::io::Write;
 
 use crate::function::{FunctionType, ObjectFunction};
 use crate::opcode::Opcode;
@@ -9,6 +10,7 @@ use crate::token::TokenType::Comma;
 use crate::token::{Token, TokenType};
 use crate::value::Value;
 
+use crate::chunk::ChunkArena;
 use std::mem;
 
 #[derive(Debug, Clone)]
@@ -28,17 +30,25 @@ pub struct Parser<'a> {
     pub result: Option<ParserError>,
     pub panic_mode: bool,
     resolver_errors: Vec<&'static str>,
+    chunks: &'a mut ChunkArena,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(source: &'a str) -> Self {
+    ///
+    ///
+    ///
+    pub fn new(source: &'a str, chunks_array: &'a mut ChunkArena) -> Self {
+        let initial_chunk = chunks_array.allocate_chunk();
+
         Parser {
             scanner: Scanner::new(source),
             resolver_errors: Vec::new(),
             compiler: Compiler::new2(ObjectFunction::new(
                 FunctionType::Script,
                 "script".to_string(),
+                initial_chunk,
             )),
+            chunks: chunks_array,
             current: Token::dummy(),
             previous: Token::dummy(),
             result: None,
@@ -46,6 +56,9 @@ impl<'a> Parser<'a> {
         }
     }
 
+    ///
+    ///
+    ///
     fn advance(&mut self) {
         self.previous = self.current.clone();
         loop {
@@ -82,8 +95,9 @@ impl<'a> Parser<'a> {
         // let function_name = self.gc.intern(self.previous..to_owned());
         match &self.previous.token_type {
             TokenType::Identifier(function_name) => {
+                let index = self.chunks.allocate_chunk();
                 let new_compiler =
-                    Compiler::new2(ObjectFunction::new(kind, function_name.to_string()));
+                    Compiler::new2(ObjectFunction::new(kind, function_name.to_string(), index));
 
                 // let new_compiler = Compiler::new(function_name, kind);
                 let old_compiler = mem::replace(&mut self.compiler, new_compiler);
@@ -96,7 +110,7 @@ impl<'a> Parser<'a> {
     }
 
     fn pop_compiler(&mut self) -> Box<Compiler> {
-        self.compiler.function.emit_return(self.previous.line);
+        self.emit_return(self.previous.line);
         match self.compiler.enclosing.take() {
             Some(enclosing) => mem::replace(&mut self.compiler, enclosing),
             None => panic!("Didn't find an enclosing compiler"),
@@ -136,9 +150,7 @@ impl<'a> Parser<'a> {
         if self.match_token(TokenType::Equal) {
             self.expression()
         } else {
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpNil, self.previous.line);
+            self.emit_byte(Opcode::OpNil, self.previous.line);
         }
 
         self.consume(TokenType::SemiColon, "Expect ';' after value");
@@ -164,10 +176,7 @@ impl<'a> Parser<'a> {
     ///
     pub(crate) fn identifier_constant(&mut self) -> usize {
         match &self.previous.token_type {
-            TokenType::Identifier(name) => self
-                .compiler
-                .function
-                .make_constant(Value::String(name.to_string())),
+            TokenType::Identifier(name) => self.make_constant(Value::String(name.to_string())),
             _ => panic!("should not happen"),
         }
     }
@@ -180,9 +189,7 @@ impl<'a> Parser<'a> {
             self.mark_initialized();
             return;
         }
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpDefineGlobal(index), line)
+        self.emit_byte(Opcode::OpDefineGlobal(index), line)
     }
 
     ///
@@ -300,9 +307,7 @@ impl<'a> Parser<'a> {
     fn print_statement(&mut self) {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value");
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPrint, self.previous.line);
+        self.emit_byte(Opcode::OpPrint, self.previous.line);
     }
 
     ///
@@ -314,16 +319,12 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::RightParen, "Expect ')' after if condition");
 
         let then_jump = self.emit_jump(Opcode::OpJumpIfFalse(0));
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPop, self.previous.line);
+        self.emit_byte(Opcode::OpPop, self.previous.line);
         self.statement();
         let else_jump = self.emit_jump(Opcode::OpJump(0));
 
         self.patch_jump(then_jump, &Opcode::OpJumpIfFalse(0));
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPop, self.previous.line);
+        self.emit_byte(Opcode::OpPop, self.previous.line);
 
         if self.match_token(TokenType::Else) {
             self.statement();
@@ -335,32 +336,26 @@ impl<'a> Parser<'a> {
     ///
     fn return_statement(&mut self) {
         if self.match_token(TokenType::SemiColon) {
-            self.compiler.function.emit_return(self.previous.line);
+            self.emit_return(self.previous.line);
         } else {
             self.expression();
             self.consume(TokenType::SemiColon, "Expect ';' after return value");
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpReturn, self.previous.line);
+            self.emit_byte(Opcode::OpReturn, self.previous.line);
         }
     }
     fn while_statement(&mut self) {
-        let loop_start = self.compiler.function.len();
+        let loop_start = self.length();
         self.consume(TokenType::LeftParen, "Expect '(' after while");
         self.expression();
         self.consume(TokenType::RightParen, "Expect ')' after while condition");
 
         let exit_jump = self.emit_jump(Opcode::OpJumpIfFalse(0));
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPop, self.previous.line);
+        self.emit_byte(Opcode::OpPop, self.previous.line);
         self.statement();
         self.emit_loop(loop_start);
 
         self.patch_jump(exit_jump, &Opcode::OpJumpIfFalse(0));
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPop, self.previous.line);
+        self.emit_byte(Opcode::OpPop, self.previous.line);
     }
 
     ///
@@ -376,16 +371,14 @@ impl<'a> Parser<'a> {
         } else {
             self.expression_statement();
         }
-        let mut loop_start = self.compiler.function.len();
+        let mut loop_start = self.length();
         //condition clause
         let mut exit_jump: Option<usize> = None;
         if !self.match_token(TokenType::SemiColon) {
             self.expression();
             self.consume(TokenType::SemiColon, "Expect ';' after loop condition");
             exit_jump = Some(self.emit_jump(Opcode::OpJumpIfFalse(0)));
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpPop, self.previous.line);
+            self.emit_byte(Opcode::OpPop, self.previous.line);
         }
 
         // self.consume(TokenType::RightParen, "Expect ')' after 'for' clauses");
@@ -393,11 +386,9 @@ impl<'a> Parser<'a> {
         // increment clause
         if !self.match_token(TokenType::RightParen) {
             let body_jump = self.emit_jump(Opcode::OpJump(0));
-            let incr_start = self.compiler.function.len();
+            let incr_start = self.length();
             self.expression();
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpPop, self.previous.line);
+            self.emit_byte(Opcode::OpPop, self.previous.line);
             self.consume(TokenType::RightParen, "Expect ')' after 'for' clauses");
 
             self.emit_loop(loop_start);
@@ -408,9 +399,7 @@ impl<'a> Parser<'a> {
         self.emit_loop(loop_start);
         if let Some(jump) = exit_jump {
             self.patch_jump(jump, &Opcode::OpJumpIfFalse(0));
-            self.compiler
-                .function
-                .emit_byte(Opcode::OpPop, self.previous.line);
+            self.emit_byte(Opcode::OpPop, self.previous.line);
         }
         self.end_scope();
     }
@@ -418,30 +407,26 @@ impl<'a> Parser<'a> {
     ///
     ///
     pub(crate) fn emit_jump(&mut self, opcode: Opcode) -> usize {
-        self.compiler.function.emit_byte(opcode, self.previous.line);
-        self.compiler.function.len()
+        self.emit_byte(opcode, self.previous.line);
+        self.length()
     }
 
     ///
     ///
     fn emit_loop(&mut self, loop_start: usize) {
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpLoop(0), self.previous.line);
-        let len = self.compiler.function.len();
+        self.emit_byte(Opcode::OpLoop(0), self.previous.line);
+        let len = self.length();
         let offset = len - loop_start;
         if offset > u16::MAX as usize {
             self.error("Loop body too large");
         }
-        self.compiler
-            .function
-            .replace_opcode(len - 1, Opcode::OpLoop(offset as u16));
+        self.replace_opcode(len - 1, Opcode::OpLoop(offset as u16));
     }
     ///
     ///
     ///
     pub(crate) fn patch_jump(&mut self, offset: usize, opcode: &Opcode) {
-        let jump = self.compiler.function.len() - offset;
+        let jump = self.length() - offset;
         if jump > u16::MAX as usize {
             self.error("Too much code to jump over");
         }
@@ -454,9 +439,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        self.compiler
-            .function
-            .replace_opcode(offset - 1, patched_opcode);
+        self.replace_opcode(offset - 1, patched_opcode);
     }
     ///
     ///
@@ -464,9 +447,7 @@ impl<'a> Parser<'a> {
     fn expression_statement(&mut self) {
         self.expression();
         self.consume(TokenType::SemiColon, "Expect ';' after value");
-        self.compiler
-            .function
-            .emit_byte(Opcode::OpPop, self.previous.line);
+        self.emit_byte(Opcode::OpPop, self.previous.line);
     }
 
     ///
@@ -504,7 +485,7 @@ impl<'a> Parser<'a> {
     ///
     ///
     fn end_compiler(&mut self) -> Result<&mut ObjectFunction, ParserError> {
-        self.compiler.function.emit_return(self.previous.line);
+        self.emit_return(self.previous.line);
 
         // if let None = self.result {
         //     self.compiler
@@ -626,7 +607,7 @@ impl<'a> Parser<'a> {
         let compiler = self.pop_compiler();
         let function = compiler.function;
         let v = Value::Function(*function);
-        let _ = &self.compiler.function.emit_constant(v, self.previous.line);
+        let _ = &self.emit_constant(v, self.previous.line);
     }
 
     ///
@@ -665,9 +646,7 @@ impl<'a> Parser<'a> {
 
         while let Some(local) = self.compiler.locals.last() {
             if local.depth > self.compiler.scope_depth {
-                self.compiler
-                    .function
-                    .emit_byte(Opcode::OpPop, self.previous.line);
+                self.emit_byte(Opcode::OpPop, self.previous.line);
 
                 self.compiler.locals.pop();
             } else {
@@ -730,5 +709,62 @@ impl<'a> Parser<'a> {
         //     src: NamedSource::new("bad_file.rs", self.scanner.get_input()),
         //     bad_bit: (9, 4).into(),
         // }));
+    }
+
+    fn chunk_index(&self) -> ChunkIndex {
+        self.compiler.function.chunk_index
+    }
+
+    ///
+    ///
+    pub fn emit_byte(&mut self, byte: Opcode, line: isize) {
+        self.write_chunk(byte, line);
+    }
+    ///
+    ///
+    pub(crate) fn emit_bytes(&mut self, byte1: Opcode, byte2: Opcode, line: isize) {
+        self.emit_byte(byte1, line);
+        self.emit_byte(byte2, line);
+    }
+    ///
+    ///
+    pub(crate) fn emit_return(&mut self, line: isize) {
+        self.emit_byte(Opcode::OpNil, line);
+        self.emit_byte(Opcode::OpReturn, line);
+    }
+    ///
+    ///
+    pub fn emit_constant(&mut self, value: Value, line: isize) {
+        let idx = self.make_constant(value);
+        self.emit_byte(Opcode::OpConstant(idx), line)
+    }
+    pub fn chunk(&mut self) -> &mut Chunk {
+        let index = self.chunk_index();
+        self.chunks.chunks.get_mut(index).unwrap()
+    }
+
+    pub fn chunk_at(&self, index: ChunkIndex) -> &Chunk {
+        self.chunks.chunks.get(index).unwrap()
+    }
+
+    fn write_chunk(&mut self, byte: Opcode, _line: isize) {
+        let index = self.chunk_index();
+        self.chunk().write_chunk(byte);
+    }
+    pub fn make_constant(&mut self, value: Value) -> usize {
+        self.chunk().add_constant(value)
+    }
+
+    pub fn disassemble_chunk(&mut self, writer: &mut Box<dyn Write>) {
+        self.chunk().disassemble_chunk(writer);
+        self.chunk().disassemble_chunk_constants(writer);
+    }
+
+    pub fn length(&mut self) -> usize {
+        self.chunk().op_codes.len()
+    }
+
+    pub fn replace_opcode(&mut self, index: usize, bytes: Opcode) {
+        self.chunk().replace_opcode(index, bytes);
     }
 }

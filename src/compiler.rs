@@ -1,9 +1,10 @@
-use crate::chunk::ChunkWriterTrait;
+use crate::chunk::{ChunkIndex, ChunkWriterTrait};
 use crate::function::ObjectFunction;
 use crate::opcode::Opcode;
 use crate::opcode::Opcode::OpJumpIfFalse;
 use crate::parser::Parser;
 use crate::precedence::{ParserRule, Precedence};
+use std::fmt::Write;
 
 use crate::token::{Token, TokenType};
 use crate::value::Value;
@@ -100,10 +101,7 @@ impl Compiler {
 
 pub fn number(parser: &mut Parser, _can_assign: bool) {
     match &parser.previous.token_type {
-        TokenType::Number(num) => parser
-            .compiler
-            .function
-            .emit_constant(Value::Number(*num), parser.previous.line),
+        TokenType::Number(num) => parser.emit_constant(Value::Number(*num), parser.previous.line),
         _ => panic!("unexpected token type"),
     }
 }
@@ -112,10 +110,7 @@ pub fn string(parser: &mut Parser, _can_assign: bool) {
     match &parser.previous.token_type {
         TokenType::String(str) => {
             //dbg!(str);
-            parser
-                .compiler
-                .function
-                .emit_constant(Value::new_string(str), parser.previous.line)
+            parser.emit_constant(Value::new_string(str), parser.previous.line)
         }
         _ => panic!("unexpected token type"),
     }
@@ -141,15 +136,9 @@ pub fn named_variable(parser: &mut Parser, can_assign: bool) {
 
     if can_assign && parser.match_token(TokenType::Equal) {
         parser.expression();
-        parser
-            .compiler
-            .function
-            .emit_byte(set_op, parser.previous.line)
+        parser.emit_byte(set_op, parser.previous.line)
     } else {
-        parser
-            .compiler
-            .function
-            .emit_byte(get_op, parser.previous.line)
+        parser.emit_byte(get_op, parser.previous.line)
     }
 }
 
@@ -165,18 +154,9 @@ pub fn grouping(compiler: &mut Parser, _can_assign: bool) {
 pub fn literal(parser: &mut Parser, _can_assign: bool) {
     let token_type = &parser.previous.token_type.clone();
     match token_type {
-        TokenType::False => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpFalse, parser.previous.line),
-        TokenType::Nil => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpNil, parser.previous.line),
-        TokenType::True => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpTrue, parser.previous.line),
+        TokenType::False => parser.emit_byte(Opcode::OpFalse, parser.previous.line),
+        TokenType::Nil => parser.emit_byte(Opcode::OpNil, parser.previous.line),
+        TokenType::True => parser.emit_byte(Opcode::OpTrue, parser.previous.line),
         _ => {}
     }
 }
@@ -190,14 +170,8 @@ pub fn unary(parser: &mut Parser, _can_assign: bool) {
 
     // Emit the operator instruction
     match token_type {
-        TokenType::Bang => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpNot, parser.previous.line),
-        TokenType::Minus => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpNegate, parser.previous.line),
+        TokenType::Bang => parser.emit_byte(Opcode::OpNot, parser.previous.line),
+        TokenType::Minus => parser.emit_byte(Opcode::OpNegate, parser.previous.line),
         _ => {}
     }
 }
@@ -216,50 +190,21 @@ pub fn binary(parser: &mut Parser, _can_assign: bool) {
 
     // Emit the operator instruction
     match token_type {
-        TokenType::Plus => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpAdd, parser.previous.line),
-        TokenType::Minus => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OPSubtract, parser.previous.line),
-        TokenType::Star => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OPMultiply, parser.previous.line),
-        TokenType::Slash => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpDivide, parser.previous.line),
+        TokenType::Plus => parser.emit_byte(Opcode::OpAdd, parser.previous.line),
+        TokenType::Minus => parser.emit_byte(Opcode::OPSubtract, parser.previous.line),
+        TokenType::Star => parser.emit_byte(Opcode::OPMultiply, parser.previous.line),
+        TokenType::Slash => parser.emit_byte(Opcode::OpDivide, parser.previous.line),
 
-        TokenType::BangEqual => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpEqual, parser.previous.line),
-        TokenType::EqualEqual => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpEqual, parser.previous.line),
-        TokenType::Greater => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpGreater, parser.previous.line),
+        TokenType::BangEqual => parser.emit_byte(Opcode::OpEqual, parser.previous.line),
+        TokenType::EqualEqual => parser.emit_byte(Opcode::OpEqual, parser.previous.line),
+        TokenType::Greater => parser.emit_byte(Opcode::OpGreater, parser.previous.line),
         TokenType::GreaterEqual => {
-            parser
-                .compiler
-                .function
-                .emit_bytes(Opcode::OpLess, Opcode::OpNot, parser.previous.line)
+            parser.emit_bytes(Opcode::OpLess, Opcode::OpNot, parser.previous.line)
         }
-        TokenType::Less => parser
-            .compiler
-            .function
-            .emit_byte(Opcode::OpLess, parser.previous.line),
-        TokenType::LessEqual => parser.compiler.function.emit_bytes(
-            Opcode::OpGreater,
-            Opcode::OpNot,
-            parser.previous.line,
-        ),
+        TokenType::Less => parser.emit_byte(Opcode::OpLess, parser.previous.line),
+        TokenType::LessEqual => {
+            parser.emit_bytes(Opcode::OpGreater, Opcode::OpNot, parser.previous.line)
+        }
         _ => {}
     }
 }
@@ -268,10 +213,7 @@ pub fn binary(parser: &mut Parser, _can_assign: bool) {
 ///
 pub fn and(parser: &mut Parser, _can_assign: bool) {
     let end_jump = parser.emit_jump(OpJumpIfFalse(0));
-    parser
-        .compiler
-        .function
-        .emit_byte(Opcode::OpPop, parser.previous.line);
+    parser.emit_byte(Opcode::OpPop, parser.previous.line);
     parser.parse_precedence(&Precedence::And);
     parser.patch_jump(end_jump, &Opcode::OpJumpIfFalse(0))
 }
@@ -284,10 +226,7 @@ pub fn or(parser: &mut Parser, _can_assign: bool) {
 
     parser.patch_jump(else_jump, &Opcode::OpJumpIfFalse(0));
 
-    parser
-        .compiler
-        .function
-        .emit_byte(Opcode::OpPop, parser.previous.line);
+    parser.emit_byte(Opcode::OpPop, parser.previous.line);
     parser.parse_precedence(&Precedence::Or);
     parser.patch_jump(end_jump, &Opcode::OpJump(0));
 }
@@ -296,8 +235,5 @@ pub fn or(parser: &mut Parser, _can_assign: bool) {
 pub fn call(parser: &mut Parser, _can_assign: bool) {
     let arg_count: u8 = parser.argument_list();
 
-    parser
-        .compiler
-        .function
-        .emit_byte(Opcode::OpCall(arg_count), parser.previous.line);
+    parser.emit_byte(Opcode::OpCall(arg_count), parser.previous.line);
 }

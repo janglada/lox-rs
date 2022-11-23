@@ -83,20 +83,14 @@ impl Value {
 
     pub fn as_function(&self) -> Result<ObjectFunction, &str> {
         match self {
-            Value::Function(obj_fn) => {
-                //   let x = unsafe { &mut (*(*objFn)) };
-                Ok(obj_fn.clone())
-            }
+            Value::Function(obj_fn) => Ok(obj_fn.clone()),
             _ => Err("Must be a obj string"),
         }
     }
 
     pub fn as_native(&self) -> Result<ObjectNative, &str> {
         match self {
-            Value::NativeFunction(obj_fn) => {
-                //   let x = unsafe { &mut (*(*objFn)) };
-                Ok(obj_fn.clone())
-            }
+            Value::NativeFunction(obj_fn) => Ok(obj_fn.clone()),
             _ => Err("Must be a obj string"),
         }
     }
