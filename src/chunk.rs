@@ -192,12 +192,7 @@ impl<'s> Iterator for ChunkOpCodeReader<'s> {
         if ip < self.op_codes.len() {
             self.ip += 1;
             // unsafe { Some((self.ip, self.op_codes.get_unchecked(ip))) }
-            Some((
-                self.ip,
-                self.op_codes
-                    .get(ip)
-                    .expect(format!("Out of bounds {}", ip).as_str()),
-            ))
+            Some((self.ip, self.op_codes.get(ip).unwrap()))
         } else {
             None
         }

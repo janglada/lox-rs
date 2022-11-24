@@ -365,28 +365,28 @@ return fib(8);
     ///
     ///
     ///
-    //     #[test]
-    //     fn vm_fibonacci_30() -> Result<()> {
-    //         assert_ok_equals(
-    //             &mut VM::new(),
-    //             r#"
-    // fun fib(n) {
-    //     if (n < 2) {
-    //
-    //         return n;
-    //     } else {
-    //
-    //         return  fib(n-1) + fib(n-2);
-    //     }
-    // }
-    // var start =  clock();
-    // var f =  fib(30);
-    // print clock() - start;
-    // return f;
-    //         "#,
-    //             Value::Number(832040 as f64),
-    //         )
-    //     }
+    #[test]
+    fn vm_fibonacci_30() -> Result<()> {
+        assert_ok_equals(
+            &mut VM::new(),
+            r#"
+    fun fib(n) {
+        if (n < 2) {
+    
+            return n;
+        } else {
+    
+            return  fib(n-1) + fib(n-2);
+        }
+    }
+    var start =  clock();
+    var f =  fib(30);
+    print clock() - start;
+    return f;
+            "#,
+            Value::Number(832040 as f64),
+        )
+    }
     //var start =  clock();
     // var sum = 0;
     // for (var i = 0; i < 10000; i = i + 1) {

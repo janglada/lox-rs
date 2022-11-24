@@ -24,3 +24,7 @@ path = "src/compiler/bin/main.rs"
 [[bin]]
 name = "row"
 path = "src/interpreter/bin/main.rs"
+
+
+[profile.bench]
+debug = true
