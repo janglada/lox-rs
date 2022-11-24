@@ -67,7 +67,10 @@ impl Chunk {
                     todo!("serialize funtcion to bytes");
                 }
                 Value::NativeFunction(_func) => {
-                    todo!("serialize funtcion to bytes");
+                    todo!("serialize native funtcion to bytes");
+                }
+                Value::Closure(_func) => {
+                    todo!("serialize closure to bytes");
                 }
             }
         });
@@ -192,12 +195,7 @@ impl<'s> Iterator for ChunkOpCodeReader<'s> {
         if ip < self.op_codes.len() {
             self.ip += 1;
             // unsafe { Some((self.ip, self.op_codes.get_unchecked(ip))) }
-            Some((
-                self.ip,
-                self.op_codes
-                    .get(ip)
-                    .expect(format!("Out of bounds {}", ip).as_str()),
-            ))
+            Some((self.ip, self.op_codes.get(ip).unwrap()))
         } else {
             None
         }
@@ -262,6 +260,9 @@ impl Chunk {
             Opcode::OpNot => Chunk::simple_instruction("OP_NOT", offset, writer),
             Opcode::OpConstant(size) => {
                 self.constant_instruction("OP_CONSTANT", offset, *size, writer)
+            }
+            Opcode::OpClosure(size) => {
+                self.constant_instruction("OP_CLOSURE", offset, *size, writer)
             }
             Opcode::OpDefineGlobal(size) => {
                 self.constant_instruction("OP_DEFINE_GLOBAL", offset, *size, writer)

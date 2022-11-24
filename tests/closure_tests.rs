@@ -31,4 +31,24 @@ f();
         "#,
         )
     }
+
+    #[test]
+    fn closure_test_a() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun makeClosure(value) {
+    fun closure() {
+        print value;
+    }
+    return closure;
+}
+var hi = makeClosure("hi");
+var there = makeClosure("there");
+hi();
+there();
+        "#,
+        )
+    }
 }

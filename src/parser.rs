@@ -11,6 +11,7 @@ use crate::token::{Token, TokenType};
 use crate::value::Value;
 
 use crate::chunk::ChunkArena;
+use crate::closure::ObjectClosure;
 use std::mem;
 
 #[derive(Debug, Clone)]
@@ -606,8 +607,9 @@ impl<'a> Parser<'a> {
 
         let compiler = self.pop_compiler();
         let function = compiler.function;
-        let v = Value::Function(*function);
-        let _ = &self.emit_constant(v, self.previous.line);
+        let v = Value::Closure(ObjectClosure::new(*function));
+        // let _ = &self.emit_constant(v, self.previous.line);
+        self.emit_closure(v, self.previous.line);
     }
 
     ///
@@ -738,6 +740,11 @@ impl<'a> Parser<'a> {
         let idx = self.make_constant(value);
         self.emit_byte(Opcode::OpConstant(idx), line)
     }
+    pub fn emit_closure(&mut self, value: Value, line: isize) {
+        let idx = self.make_constant(value);
+        self.emit_byte(Opcode::OpClosure(idx), line)
+    }
+
     pub fn chunk(&mut self) -> &mut Chunk {
         let index = self.chunk_index();
         self.chunks.chunks.get_mut(index).unwrap()

@@ -1,3 +1,4 @@
+use crate::closure::ObjectClosure;
 use std::fmt::{Display, Formatter};
 
 use crate::function::ObjectFunction;
@@ -11,6 +12,7 @@ pub enum Value {
     String(String),
     Function(ObjectFunction),
     NativeFunction(ObjectNative),
+    Closure(ObjectClosure),
 }
 
 impl Value {
@@ -41,6 +43,7 @@ impl Value {
     pub fn is_object(&self) -> bool {
         match self {
             Value::Function(_s) => true,
+            Value::Closure(_s) => true,
             Value::NativeFunction(_s) => true,
             _ => false,
         }
@@ -59,7 +62,12 @@ impl Value {
             _ => false,
         }
     }
-
+    pub fn is_closure(&self) -> bool {
+        match self {
+            Value::Closure(_) => true,
+            _ => false,
+        }
+    }
     pub fn as_number(&self) -> Result<&f64, &str> {
         match self {
             Value::Number(c) => Ok(c),
@@ -84,14 +92,21 @@ impl Value {
     pub fn as_function(&self) -> Result<ObjectFunction, &str> {
         match self {
             Value::Function(obj_fn) => Ok(obj_fn.clone()),
-            _ => Err("Must be a obj string"),
+            _ => Err("Must be a obj function"),
         }
     }
 
     pub fn as_native(&self) -> Result<ObjectNative, &str> {
         match self {
             Value::NativeFunction(obj_fn) => Ok(obj_fn.clone()),
-            _ => Err("Must be a obj string"),
+            _ => Err("Must be a obj native fn"),
+        }
+    }
+
+    pub fn as_closure(&self) -> Result<ObjectClosure, &str> {
+        match self {
+            Value::Closure(obj_closure) => Ok(obj_closure.clone()),
+            _ => Err("Must be a obj closure"),
         }
     }
 }
@@ -118,6 +133,9 @@ impl Display for Value {
             }
             Value::NativeFunction(obj) => {
                 write!(f, "<native fn {}>", obj.name)
+            }
+            Value::Closure(closure) => {
+                write!(f, "<closure fn {}>", closure.function.name)
             }
         }
     }

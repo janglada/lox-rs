@@ -3,6 +3,7 @@ extern crate core;
 mod token;
 // mod full_scanner;
 pub mod chunk;
+mod closure;
 pub mod compiler;
 mod error;
 mod function;

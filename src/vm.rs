@@ -1,6 +1,7 @@
 use crate::chunk::{Chunk, ChunkArena, ChunkOpCodeReader};
 use std::backtrace::Backtrace;
 
+use crate::closure::ObjectClosure;
 use crate::error::{LoxCompileError, LoxRuntimeError};
 use crate::function::ObjectFunction;
 use crate::native::{NativeFn, ObjectNative};
@@ -17,7 +18,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct CallFrame {
-    function: ObjectFunction,
+    closure: ObjectClosure,
     //  The slots field points into the VM’s value stack at the first slot that this function can use
     value_stack_pos: usize,
     return_address_pos: usize,
@@ -112,9 +113,11 @@ impl VM {
 
                 // write!(stdout(), "CALLING FUNCTION {}\n", function.name);
                 // function.disassemble_chunk(&mut (Box::new(io::stdout()) as Box<dyn Write>));
-
-                self.stack.push(Value::Function(function.clone()));
-                let _ = self.call(function, &0, 0);
+                let mut closure = ObjectClosure {
+                    function: function.clone(),
+                };
+                self.stack.push(Value::Closure(closure.clone()));
+                let _ = self.call(&mut closure, &0, 0);
                 // self.frames.push(CallFrame {
                 //     function,
                 //     ip: 0,
@@ -274,19 +277,9 @@ impl VM {
         //     callee.to_string()
         // );
         if callee.is_object() {
-            // match callee {
-            //     Value::Function(func) => {
-            //         //  let f = unsafe { &mut (*(*func)) };
-            //
-            //         return self.call(func, arg_count);
-            //     }
-            //     _ => {
-            //         todo!();
-            //     }
-            // }
-            if let Ok(mut func) = callee.as_function() {
+            if let Ok(mut closure) = callee.as_closure() {
                 return Ok(CallResponse::Standard(
-                    self.call(&mut func, arity, opcode_pos).unwrap(),
+                    self.call(&mut closure, arity, opcode_pos).unwrap(),
                 ));
             }
             if let Ok(native) = callee.as_native() {
@@ -301,6 +294,24 @@ impl VM {
                     return Ok(CallResponse::Native);
                 }
             }
+
+            // if let Ok(mut func) = callee.as_function() {
+            //     return Ok(CallResponse::Standard(
+            //         self.call(&mut func, arity, opcode_pos).unwrap(),
+            //     ));
+            // }
+            // if let Ok(native) = callee.as_native() {
+            //     unsafe {
+            //         let fn_native = native.function;
+            //         let _ptr0 = self.stack.as_ptr();
+            //         let ptr = self.stack.as_ptr().offset(-((*arity) as isize));
+            //         let result = fn_native(*arity, ptr);
+            //         self.stack.pop_n(arity + 1);
+            //
+            //         self.stack.push(result);
+            //         return Ok(CallResponse::Native);
+            //     }
+            // }
         }
 
         self.runtime_error("Can only call functions and classes")
@@ -311,15 +322,15 @@ impl VM {
     ///
     fn call(
         &mut self,
-        function: &mut ObjectFunction,
+        closure: &mut ObjectClosure,
         arg_count: &u8,
         opcode_pos: usize,
     ) -> Result<bool> {
-        if *arg_count != function.arity {
+        if *arg_count != closure.function.arity {
             return self.runtime_error(
                 format!(
                     "Expected {} arguments, but got {}",
-                    function.arity, arg_count
+                    closure.function.arity, arg_count
                 )
                 .as_str(),
             );
@@ -327,7 +338,7 @@ impl VM {
         let p = self.stack.len() - *arg_count as usize - 1;
         //   println!("value_stack_pos {}", p);
         self.frames.push(CallFrame {
-            function: function.clone(),
+            closure: closure.clone(),
             value_stack_pos: p,
             return_address_pos: opcode_pos,
         });
@@ -341,8 +352,8 @@ impl VM {
         let mut frame = self.frames.last_mut().unwrap();
         let mut frame_slot = frame.value_stack_pos;
         // let frame = frames_opt.last().unwrap();
-        let mut chunk = parser.chunk_at(frame.function.chunk_index); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
-                                                                     // for c in &chunk.op_codes
+        let mut chunk = parser.chunk_at(frame.closure.function.chunk_index); //unsafe { (*frame.function).chunk.clone() }; // unsafe { &(*frame.function).chunk };
+                                                                             // for c in &chunk.op_codes
         let mut op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
 
         let _counter = 0;
@@ -548,7 +559,7 @@ impl VM {
                         Standard(success) => {
                             if success {
                                 frame = self.frames.last_mut().unwrap();
-                                chunk = parser.chunk_at(frame.function.chunk_index);
+                                chunk = parser.chunk_at(frame.closure.function.chunk_index);
                                 frame_slot = frame.value_stack_pos; // for c in &chunk.op_codes
                                 op_code_iter = ChunkOpCodeReader::new(chunk.op_codes.as_slice(), 0);
                             } else {
@@ -561,14 +572,11 @@ impl VM {
                     }
                 }
 
-                // Opcode::OpReturn => {
-                //     return if let Some(ret_val) = self.stack.safe_pop() {
-                //         VM::print_value(&ret_val);
-                //         InterpretResult::Ok(Some(ret_val.borrow().clone()))
-                //     } else {
-                //         InterpretResult::Ok(None)
-                //     }
-                // }
+                Opcode::OpClosure(idx) => {
+                    let closure_val = chunk.read_constant(*idx).unwrap().as_closure().unwrap();
+                    self.stack.push(Value::Closure(closure_val));
+                    // println!("const val {}", const_val);
+                }
                 Opcode::OpReturn => {
                     // println!("RETURN ---------------------------------------");
                     // println!("{:?}", self.stack);
@@ -584,7 +592,7 @@ impl VM {
                     }
                     self.stack.push(_result);
                     frame = self.frames.last_mut().unwrap();
-                    chunk = parser.chunk_at(frame.function.chunk_index);
+                    chunk = parser.chunk_at(frame.closure.function.chunk_index);
                     frame_slot = frame.value_stack_pos;
                     op_code_iter = ChunkOpCodeReader::new(
                         chunk.op_codes.as_slice(),
@@ -606,7 +614,7 @@ impl VM {
         last_frame_addr: usize,
         parser: &'s Parser,
     ) -> ChunkOpCodeReader<'s> {
-        let chunk_index = self.frames.last().unwrap().function.chunk_index;
+        let chunk_index = self.frames.last().unwrap().closure.function.chunk_index;
         ChunkOpCodeReader::new(
             parser.chunk_at(chunk_index).op_codes.as_slice(),
             last_frame_addr,

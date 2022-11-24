@@ -41,6 +41,8 @@ pub enum Opcode {
 
     OpPrint,
     OpPop,
+
+    OpClosure(usize),
 }
 
 impl Into<Vec<u8>> for &Opcode {
@@ -73,11 +75,13 @@ impl Into<Vec<u8>> for &Opcode {
             Opcode::OpPrint => v.push(23),
             Opcode::OpPop => v.push(24),
             Opcode::OpCall(_) => v.push(25),
+            Opcode::OpClosure(_) => v.push(26),
         };
 
         match &self {
             // usize
-            Opcode::OpConstant(idx)
+            Opcode::OpClosure(idx)
+            | Opcode::OpConstant(idx)
             | Opcode::OpDefineGlobal(idx)
             | Opcode::OpGetGlobal(idx)
             | Opcode::OpSetGlobal(idx)
@@ -168,6 +172,7 @@ impl Opcode {
                     22 => Opcode::OpLess,
                     23 => Opcode::OpPrint,
                     24 => Opcode::OpPop,
+                    26 => Opcode::OpClosure(usize_from_reader(reader)),
 
                     _ => panic!("Unknwon opcode {}", buff[0]),
                 };
