@@ -51,4 +51,41 @@ there();
         "#,
         )
     }
+
+    /// Should print:
+    ///
+    /// return from outer
+    // create inner closure
+    // value
+    ///
+    ///
+    ///
+    ///
+    #[test]
+    fn closure_any_Scope() -> Result<()> {
+        assert_ok(
+            &mut VM::new(),
+            r#"
+
+fun outer() {
+  var x = "value";
+  fun middle() {
+    fun inner() {
+      print x;
+    }
+
+    print "create inner closure";
+    return inner;
+  }
+
+  print "return from outer";
+  return middle;
+}
+
+var mid = outer();
+var in = mid();
+return in();
+        "#,
+        )
+    }
 }

@@ -13,6 +13,7 @@ use crate::value::Value;
 use crate::chunk::ChunkArena;
 use crate::closure::ObjectClosure;
 use std::mem;
+use std::thread::sleep;
 
 #[derive(Debug, Clone)]
 pub struct ParserError {
@@ -552,6 +553,60 @@ impl<'a> Parser<'a> {
         result
     }
 
+    pub(crate) fn add_up_value(&mut self, index: u8, is_local: bool) -> usize {
+        let upvalue_count = self.compiler.function.upvalue_count;
+
+        for i in 0..upvalue_count {
+            let upvalue = self.compiler.upvalues.get(i).unwrap();
+            if upvalue.is_local == is_local && upvalue.index == i as u8 {
+                return i;
+            }
+        }
+        if upvalue_count == u8::MAX as usize {
+            self.error("Too many closure variables in function");
+        }
+        self.compiler
+            .upvalues
+            .get_mut(upvalue_count)
+            .unwrap()
+            .is_local = is_local;
+        self.compiler.upvalues.get_mut(upvalue_count).unwrap().index = index;
+        self.compiler.function.upvalue_count = self.compiler.function.upvalue_count + 1;
+        return self.compiler.function.upvalue_count;
+    }
+
+    ///
+    ///
+    pub(crate) fn resolve_up_value(&mut self) -> Option<usize> {
+        if self.compiler.enclosing.is_none() {
+            return None;
+        }
+
+        if let Some(local) = self
+            .compiler
+            .resolve_local(&self.previous, &mut self.resolver_errors)
+        {
+            return Some(self.add_up_value(local as u8, true));
+        } else {
+            None
+        }
+
+        // match self.compiler.enclosing {
+        //     None => None
+        //     Some(enclosing) => {
+        //         let result = self
+        //             .compiler
+        //             .resolve_local(&self.previous, &mut self.resolver_errors);
+        //     }
+        // }
+
+        // if ()
+        //
+        // while let Some(e) = self.resolver_errors.pop() {
+        //     self.error(e);
+        // }
+        // result
+    }
     ///
     ///
     pub(crate) fn add_local(&mut self, token: Token) {

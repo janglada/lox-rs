@@ -13,6 +13,9 @@ pub enum Opcode {
     OpGetLocal(usize),
     OpSetLocal(usize),
 
+    OpGetUpValue(usize),
+    OpSetUpValue(usize),
+
     OpCall(u8),
 
     OpJumpIfFalse(u16),
@@ -76,6 +79,8 @@ impl Into<Vec<u8>> for &Opcode {
             Opcode::OpPop => v.push(24),
             Opcode::OpCall(_) => v.push(25),
             Opcode::OpClosure(_) => v.push(26),
+            Opcode::OpGetUpValue(_) => v.push(27),
+            Opcode::OpSetUpValue(_) => v.push(28),
         };
 
         match &self {
@@ -86,7 +91,9 @@ impl Into<Vec<u8>> for &Opcode {
             | Opcode::OpGetGlobal(idx)
             | Opcode::OpSetGlobal(idx)
             | Opcode::OpGetLocal(idx)
-            | Opcode::OpSetLocal(idx) => {
+            | Opcode::OpSetLocal(idx)
+            | Opcode::OpGetUpValue(idx)
+            | Opcode::OpSetUpValue(idx) => {
                 v.extend_from_slice(&idx.to_le_bytes());
                 v
             }

@@ -21,6 +21,7 @@ pub struct ObjectFunction {
     ftype: FunctionType,
     pub(crate) chunk_index: ChunkIndex,
     pub(crate) arity: u8,
+    pub(crate) upvalue_count: usize,
     pub name: String,
 }
 
@@ -33,6 +34,7 @@ impl ObjectFunction {
             name,
             ftype,
             chunk_index,
+            upvalue_count : 0,
             arity: 0,
         }
     }

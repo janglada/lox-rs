@@ -599,6 +599,8 @@ impl VM {
                         last_frame.return_address_pos,
                     );
                 }
+                Opcode::OpGetUpValue(_) => {}
+                Opcode::OpSetUpValue(_) => {}
             }
         }
         let _a = self.stack.peek(0);

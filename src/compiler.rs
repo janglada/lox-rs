@@ -11,6 +11,7 @@ use crate::value::Value;
 
 use num_traits::FromPrimitive;
 
+use crate::upvalue::UpValue;
 use arrayvec::ArrayVec;
 
 #[derive(Debug)]
@@ -20,6 +21,7 @@ pub struct Compiler {
     pub(crate) function: Box<ObjectFunction>,
     // scope
     pub(crate) locals: ArrayVec<Local, 256>,
+    pub(crate) upvalues: ArrayVec<UpValue, 256>,
 
     pub(crate) scope_depth: isize,
 }
@@ -59,6 +61,7 @@ impl Compiler {
             enclosing: None,
             function: Box::new(func),
             locals,
+            upvalues: ArrayVec::new(),
             scope_depth: 0,
         })
     }
@@ -129,6 +132,8 @@ pub fn named_variable(parser: &mut Parser, can_assign: bool) {
 
     let (get_op, set_op) = if let Some(index) = parser.resolve_local() {
         (Opcode::OpGetLocal(index), Opcode::OpSetLocal(index))
+    } else if let Some(index) = parser.resolve_up_value() {
+        (Opcode::OpGetUpValue(index), Opcode::OpSetUpValue(index))
     } else {
         let index = parser.identifier_constant();
         (Opcode::OpGetGlobal(index), Opcode::OpSetGlobal(index))

@@ -13,5 +13,6 @@ mod parser;
 mod precedence;
 mod scanner;
 mod stack;
+mod upvalue;
 pub mod value;
 pub mod vm;
