@@ -75,8 +75,68 @@ impl Compiler {
         self.locals.push(local);
     }
 
-    pub(crate) fn resolve_local(
+    ///
+    pub(crate) fn resolve_up_value(
         &mut self,
+        token: &Token,
+        errors: &mut Vec<&'static str>,
+    ) -> Option<usize> {
+        if self.enclosing.is_none() {
+            return None;
+        }
+        //  let mut enclosing = self.enclosing;
+
+        if let Some(local) = self
+            .enclosing
+            .as_ref()
+            .unwrap()
+            .resolve_local(token, errors)
+            .or_else(|| {
+                self.enclosing
+                    .as_mut()
+                    .unwrap()
+                    .resolve_up_value(token, errors)
+            })
+        {
+            return self.add_up_value(local as u8, true).ok();
+        }
+        // if let Some(local) = self.enclosing.unwrap().resolve_local(token, errors) {
+        //     return self.enclosing.unwrap().add_up_value(local as u8, true).ok();
+        // } else if let Some(local) = self.enclosing.unwrap().resolve_up_value(token, errors) {
+        //     return self.enclosing.unwrap().add_up_value(local as u8, true).ok();
+        else {
+            return None;
+        }
+    }
+
+    pub(crate) fn add_up_value(
+        &mut self,
+        index: u8,
+        is_local: bool,
+    ) -> Result<usize, &'static str> {
+        let upvalue_count = self.function.upvalue_count;
+
+        for i in 0..upvalue_count {
+            let upvalue = self.upvalues.get(i).unwrap();
+            if upvalue.is_local == is_local && upvalue.index == i as u8 {
+                return Ok(i);
+            }
+        }
+        if upvalue_count == u8::MAX as usize {
+            return Err("Too many closure variables in function");
+        }
+        self.upvalues.push(UpValue { is_local, index });
+        // self.upvalues.get_mut(upvalue_count).unwrap().is_local = is_local;
+        // self.upvalues.get_mut(upvalue_count).unwrap().index = index;
+        self.function.upvalue_count = self.upvalues.len();
+        return Ok(self.function.upvalue_count);
+    }
+
+    ///
+    ///
+    ///
+    pub(crate) fn resolve_local(
+        &self,
         token: &Token,
         errors: &mut Vec<&'static str>,
     ) -> Option<usize> {
@@ -97,8 +157,6 @@ impl Compiler {
         } else {
             None
         }
-
-        // local.map(|a| a.0)
     }
 }
 

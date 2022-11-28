@@ -31,7 +31,7 @@ pub struct Parser<'a> {
     pub previous: Token,
     pub result: Option<ParserError>,
     pub panic_mode: bool,
-    resolver_errors: Vec<&'static str>,
+    pub(crate) resolver_errors: Vec<&'static str>,
     chunks: &'a mut ChunkArena,
 }
 
@@ -516,6 +516,9 @@ impl<'a> Parser<'a> {
         self.parse_precedence(&Precedence::Assigment)
     }
 
+    ///
+    ///
+    ///
     pub(crate) fn parse_precedence(&mut self, precedence: &Precedence) {
         self.advance();
         let prefix_rule = ParserRule::get_rule(&self.previous.token_type).prefix;
@@ -553,6 +556,19 @@ impl<'a> Parser<'a> {
         result
     }
 
+    ///
+    ///
+    pub(crate) fn resolve_up_value(&mut self) -> Option<usize> {
+        let result = self
+            .compiler
+            .resolve_up_value(&self.previous, &mut self.resolver_errors);
+        while let Some(e) = self.resolver_errors.pop() {
+            self.error(e);
+        }
+        result
+    }
+    //
+
     pub(crate) fn add_up_value(&mut self, index: u8, is_local: bool) -> usize {
         let upvalue_count = self.compiler.function.upvalue_count;
 
@@ -577,36 +593,17 @@ impl<'a> Parser<'a> {
 
     ///
     ///
-    pub(crate) fn resolve_up_value(&mut self) -> Option<usize> {
-        if self.compiler.enclosing.is_none() {
-            return None;
-        }
-
-        if let Some(local) = self
-            .compiler
-            .resolve_local(&self.previous, &mut self.resolver_errors)
-        {
-            return Some(self.add_up_value(local as u8, true));
-        } else {
-            None
-        }
-
-        // match self.compiler.enclosing {
-        //     None => None
-        //     Some(enclosing) => {
-        //         let result = self
-        //             .compiler
-        //             .resolve_local(&self.previous, &mut self.resolver_errors);
-        //     }
-        // }
-
-        // if ()
-        //
-        // while let Some(e) = self.resolver_errors.pop() {
-        //     self.error(e);
-        // }
-        // result
-    }
+    // pub(crate) fn resolve_up_value(&mut self, _compiler: Option<&mut Compiler>) -> Option<usize> {
+    //     let mut enclosing = self.compiler.enclosing?;
+    //
+    //     if let Some(local) = enclosing.resolve_local(&self.previous, &mut self.resolver_errors) {
+    //         return enclosing.add_up_value(local as u8, true).ok();
+    //     } else if let Some(local) = self.resolve_up_value(enclosing) {
+    //         return enclosing.add_up_value(local as u8, true).ok();
+    //     } else {
+    //         None
+    //     }
+    // }
     ///
     ///
     pub(crate) fn add_local(&mut self, token: Token) {
