@@ -46,6 +46,7 @@ pub enum Opcode {
     OpPop,
 
     OpClosure(usize),
+    OpClosureData(bool, u8),
 }
 
 impl Into<Vec<u8>> for &Opcode {
@@ -81,6 +82,7 @@ impl Into<Vec<u8>> for &Opcode {
             Opcode::OpClosure(_) => v.push(26),
             Opcode::OpGetUpValue(_) => v.push(27),
             Opcode::OpSetUpValue(_) => v.push(28),
+            Opcode::OpClosureData(_, _) => v.push(29),
         };
 
         match &self {
@@ -100,6 +102,12 @@ impl Into<Vec<u8>> for &Opcode {
 
             Opcode::OpCall(args) => {
                 v.push(*args);
+                v
+            }
+
+            Opcode::OpClosureData(is_local, index) => {
+                v.push(if *is_local { 1u8 } else { 0u8 });
+                v.push(*index);
                 v
             }
 

@@ -13,6 +13,7 @@ pub enum Value {
     Function(ObjectFunction),
     NativeFunction(ObjectNative),
     Closure(ObjectClosure),
+    UpValue,
 }
 
 impl Value {

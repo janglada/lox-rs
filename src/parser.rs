@@ -659,9 +659,18 @@ impl<'a> Parser<'a> {
 
         let compiler = self.pop_compiler();
         let function = compiler.function;
+        let upvalue_count = function.upvalue_count;
         let v = Value::Closure(ObjectClosure::new(*function));
         // let _ = &self.emit_constant(v, self.previous.line);
         self.emit_closure(v, self.previous.line);
+        for i in 0..upvalue_count {
+            let upvalue = compiler.upvalues.get(i).unwrap();
+
+            self.emit_byte(
+                Opcode::OpClosureData(upvalue.is_local, upvalue.index),
+                self.previous.line,
+            );
+        }
     }
 
     ///

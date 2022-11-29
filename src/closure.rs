@@ -12,3 +12,7 @@ impl ObjectClosure {
         ObjectClosure { function }
     }
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectUpValue {
+    pub(crate) function: ObjectFunction,
+}

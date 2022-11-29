@@ -577,6 +577,9 @@ impl VM {
                     self.stack.push(Value::Closure(closure_val));
                     // println!("const val {}", const_val);
                 }
+                Opcode::OpClosureData(_, _) => {
+                    todo!();
+                }
                 Opcode::OpReturn => {
                     // println!("RETURN ---------------------------------------");
                     // println!("{:?}", self.stack);

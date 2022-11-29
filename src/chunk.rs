@@ -261,8 +261,32 @@ impl Chunk {
             Opcode::OpConstant(size) => {
                 self.constant_instruction("OP_CONSTANT", offset, *size, writer)
             }
-            Opcode::OpClosure(size) => {
-                self.constant_instruction("OP_CLOSURE", offset, *size, writer)
+            Opcode::OpClosure(idx) => {
+                let mut next_offset = self.constant_instruction("OP_CLOSURE", offset, *idx, writer);
+                let func = self.constants.get(*idx).unwrap().as_function().unwrap();
+                for i in 0..func.upvalue_count {
+                    if let Opcode::OpClosureData(is_local, index) =
+                        self.op_codes.get(next_offset).unwrap()
+                    {
+                        writeln!(
+                            writer,
+                            "{:04}  |  {}  {}",
+                            next_offset,
+                            if *is_local { "local" } else { "upvalue" },
+                            *index
+                        )
+                        .unwrap();
+                        next_offset = next_offset + 1
+                    }
+                }
+
+                next_offset
+            }
+            Opcode::OpGetUpValue(size) => {
+                Chunk::simple_instruction("OP_GET_UPVALUE", offset, writer)
+            }
+            Opcode::OpSetUpValue(size) => {
+                Chunk::simple_instruction("OP_SET_UPVALUE", offset, writer)
             }
             Opcode::OpDefineGlobal(size) => {
                 self.constant_instruction("OP_DEFINE_GLOBAL", offset, *size, writer)
